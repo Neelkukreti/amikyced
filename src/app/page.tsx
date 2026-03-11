@@ -12,6 +12,15 @@ interface CexInteraction {
   timestamp?: string;
   amount?: string;
   counterparty: string;
+  indirect?: boolean;
+}
+
+interface IndirectExposure {
+  intermediaryAddress: string;
+  exchange: string;
+  label: string;
+  direction: "sent" | "received";
+  confidence: "high" | "medium";
 }
 
 interface ScanResult {
@@ -21,6 +30,7 @@ interface ScanResult {
   riskScore: number;
   riskLevel: "none" | "low" | "medium" | "high" | "critical";
   interactions: CexInteraction[];
+  indirectExposures: IndirectExposure[];
   exchangesSeen: string[];
   totalInteractions: number;
   scanDuration: number;
@@ -246,6 +256,55 @@ export default function Home() {
               </div>
             )}
 
+            {/* Indirect Exposure */}
+            {result.indirectExposures && result.indirectExposures.length > 0 && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6">
+                <h3 className="text-lg font-semibold text-amber-400">
+                  Indirect Exposure Detected (2-hop)
+                </h3>
+                <p className="mt-1 text-xs text-zinc-500">
+                  These addresses interacted with your wallet AND with known CEX hot wallets — likely personal exchange deposit addresses.
+                </p>
+                <div className="mt-4 space-y-2">
+                  {result.indirectExposures.map((exp, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded-lg border border-amber-500/20 bg-zinc-800/50 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-400">
+                          2H
+                        </span>
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            {exp.exchange}{" "}
+                            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                              exp.confidence === "high"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-yellow-500/10 text-yellow-400"
+                            }`}>
+                              {exp.confidence} confidence
+                            </span>
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500 font-mono">
+                            {exp.intermediaryAddress.slice(0, 16)}...{exp.intermediaryAddress.slice(-8)}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={`${EXPLORER_URLS[result.chain].addr}${exp.intermediaryAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
+                      >
+                        View Address
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Transaction Log */}
             {result.interactions.length > 0 && (
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6">
@@ -261,12 +320,14 @@ export default function Home() {
                       <div className="flex items-center gap-3">
                         <span
                           className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
-                            ix.direction === "sent"
-                              ? "bg-red-500/10 text-red-400"
-                              : "bg-emerald-500/10 text-emerald-400"
+                            ix.indirect
+                              ? "bg-amber-500/10 text-amber-400"
+                              : ix.direction === "sent"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-emerald-500/10 text-emerald-400"
                           }`}
                         >
-                          {ix.direction === "sent" ? "OUT" : "IN"}
+                          {ix.indirect ? "2H" : ix.direction === "sent" ? "OUT" : "IN"}
                         </span>
                         <div>
                           <p className="text-sm font-medium text-white">
@@ -308,8 +369,8 @@ export default function Home() {
         <div className="mt-16 border-t border-zinc-800/50 pt-8 text-center text-xs text-zinc-600">
           <p>
             AMIKYCED scans on-chain transaction history against a database of{" "}
-            <span className="text-zinc-400">100+</span> known CEX wallet addresses across{" "}
-            <span className="text-zinc-400">15+ exchanges</span>.
+            <span className="text-zinc-400">165+</span> known CEX wallet addresses across{" "}
+            <span className="text-zinc-400">25+ exchanges</span>. Includes 2-hop indirect exposure detection.
           </p>
           <p className="mt-2">
             Supports Ethereum, Solana, Bitcoin, and TRON.

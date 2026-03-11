@@ -107,6 +107,79 @@ const EVM_CEX: CexAddress[] = [
 
   // Robinhood
   { address: "0x40b38765696e3d5d8d9d834d8aad4bb6e418e489", exchange: "Robinhood", label: "Robinhood Hot Wallet", chain: "ethereum" },
+
+  // Bybit (additional from PoR)
+  { address: "0xe28b3b32b6c345a34ff64674606124dd5aceca30", exchange: "Bybit", label: "Bybit Hot Wallet 2", chain: "ethereum" },
+  { address: "0xd9d93951896b4ef97d251334ef2a0e39f6f6d7d7", exchange: "Bybit", label: "Bybit Hot Wallet 3", chain: "ethereum" },
+  { address: "0xa7a93fd0a276fc1c0197a5b5623ed117786bad7d", exchange: "Bybit", label: "Bybit Hot Wallet 4", chain: "ethereum" },
+
+  // Coinbase (additional)
+  { address: "0xa090e606e30bd747d4e6245a1517ebe430f0057e", exchange: "Coinbase", label: "Coinbase Hot Wallet 8", chain: "ethereum" },
+
+  // Kraken (additional)
+  { address: "0xe853c56864a2ebe4576a807d26fdc4a0ada51919", exchange: "Kraken", label: "Kraken Hot Wallet 5", chain: "ethereum" },
+  { address: "0xda9dfa130df4de4673b89022ee50ff26f6ea73cf", exchange: "Kraken", label: "Kraken Hot Wallet 6", chain: "ethereum" },
+
+  // OKX (additional)
+  { address: "0x98ec059dc3adfbdd63429227d09be80455b2d0d3", exchange: "OKX", label: "OKX Hot Wallet 5", chain: "ethereum" },
+  { address: "0x6fb624b48f9a4c4e114a8084b0bad244e8bf464e", exchange: "OKX", label: "OKX Hot Wallet 6", chain: "ethereum" },
+
+  // HTX (additional)
+  { address: "0x46705dfff24256421a05d056c29e81bdc09723b8", exchange: "HTX (Huobi)", label: "HTX Hot Wallet 5", chain: "ethereum" },
+  { address: "0x5c985e89dde482efe97ea9f1950ad149eb73829b", exchange: "HTX (Huobi)", label: "HTX Hot Wallet 6", chain: "ethereum" },
+  { address: "0x1062a747393198f70f71ec65a582423dba7e5ab3", exchange: "HTX (Huobi)", label: "HTX Cold Wallet", chain: "ethereum" },
+
+  // Crypto.com (additional)
+  { address: "0xcffad3200574698b78f32232aa9d63eabd290703", exchange: "Crypto.com", label: "Crypto.com Hot Wallet 2", chain: "ethereum" },
+  { address: "0x72a53cdbbcc1b9efa39c834a540550e23463aacb", exchange: "Crypto.com", label: "Crypto.com Hot Wallet 3", chain: "ethereum" },
+
+  // Bitfinex (additional)
+  { address: "0x4fdd5eb2fb260149a3903859043e962ab89d8ed4", exchange: "Bitfinex", label: "Bitfinex Hot Wallet 3", chain: "ethereum" },
+
+  // Upbit (additional)
+  { address: "0x46f3b68e80b33612100bc5fc22c926acf2aacab0", exchange: "Upbit", label: "Upbit Hot Wallet 2", chain: "ethereum" },
+  { address: "0x1a3c5be4d6bf02257c462ee7964dc52d3f7e9cf7", exchange: "Upbit", label: "Upbit Hot Wallet 3", chain: "ethereum" },
+
+  // Bitget (additional)
+  { address: "0x1ae3739c0f04f75d0b20a5b2216e3859fdc77d49", exchange: "Bitget", label: "Bitget Hot Wallet 3", chain: "ethereum" },
+
+  // MEXC (additional)
+  { address: "0x4fbb0b4cd8f960ac3428194f1c94c805d5b35836", exchange: "MEXC", label: "MEXC Hot Wallet 2", chain: "ethereum" },
+
+  // BitMart
+  { address: "0x68b22215ff74e3606bd5e6c1de8c2d68bc0f3c41", exchange: "BitMart", label: "BitMart Hot Wallet", chain: "ethereum" },
+  { address: "0xe79eef9b9388a4ff70ed7ec5bccd5b928ebb8bd1", exchange: "BitMart", label: "BitMart Hot Wallet 2", chain: "ethereum" },
+
+  // Bithumb
+  { address: "0xd273ce0808380ccbf1ffc0aee8dd52ebb8e9eeec", exchange: "Bithumb", label: "Bithumb Hot Wallet", chain: "ethereum" },
+  { address: "0x88d34944cf554e9cccf4a24292d891f620e9c94f", exchange: "Bithumb", label: "Bithumb Hot Wallet 2", chain: "ethereum" },
+
+  // Deribit
+  { address: "0x77ab999d1e9f152671b3c0a2a6a18c22fe5ce12b", exchange: "Deribit", label: "Deribit Hot Wallet", chain: "ethereum" },
+
+  // WazirX
+  { address: "0x27fd43babfbe83a81d14665b1a6fb8030a60c9b4", exchange: "WazirX", label: "WazirX Hot Wallet", chain: "ethereum" },
+
+  // Phemex
+  { address: "0xfbf2173154f7625713be22e51e9fb3d82e6e244e", exchange: "Phemex", label: "Phemex Hot Wallet", chain: "ethereum" },
+
+  // WhiteBIT
+  { address: "0x39f6a6c85d39d5aba4e928f1b6c8cc71b82e8bcf", exchange: "WhiteBIT", label: "WhiteBIT Hot Wallet", chain: "ethereum" },
+
+  // Bitrue
+  { address: "0x6cc8dcbca746a6e4fdefb98e1d0df903b107fd21", exchange: "Bitrue", label: "Bitrue Hot Wallet", chain: "ethereum" },
+
+  // LBank
+  { address: "0x0860fba3a0dbfeb3a0bf3805ef8e6e66f18cc3e4", exchange: "LBank", label: "LBank Hot Wallet", chain: "ethereum" },
+
+  // CoinEx
+  { address: "0xb9ee1e551f538a464e8f8c41e9904498505b49b0", exchange: "CoinEx", label: "CoinEx Hot Wallet", chain: "ethereum" },
+
+  // BingX
+  { address: "0xf7237c230de3aae99082c6c1d718e4fab03e6397", exchange: "BingX", label: "BingX Hot Wallet", chain: "ethereum" },
+
+  // AscendEX
+  { address: "0x4b1a99467a284cc690e3237bc69105956816f762", exchange: "AscendEX", label: "AscendEX Hot Wallet", chain: "ethereum" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -150,6 +223,21 @@ const SOLANA_CEX: CexAddress[] = [
 
   // MEXC
   { address: "ASTyfSima4LLAdDgoFGkgqoKowG1LZFDr9fAQrg7iaJZ", exchange: "MEXC", label: "MEXC Hot Wallet", chain: "solana" },
+
+  // Bybit (additional)
+  { address: "BYvMHhBkVqnGGUJCrDFhSxDPMjbKEddAb4PQfaBghiRP", exchange: "Bybit", label: "Bybit Hot Wallet 2", chain: "solana" },
+
+  // Bitget (additional)
+  { address: "CGpAUQp12yDsVwbSF5yeSzCi1HjVhDhASZzmkqnf8SJHG", exchange: "Bitget", label: "Bitget Hot Wallet 2", chain: "solana" },
+
+  // WhiteBIT
+  { address: "6vfKjMHa3Bv2vGVCr8LRCC3Fv3sFnQF8Z8y9kSTJEmpw", exchange: "WhiteBIT", label: "WhiteBIT Hot Wallet", chain: "solana" },
+
+  // BitMart
+  { address: "5M5kNYpzCb4JGJKk8dC3YaFRzFW1JGMRoV2X3LXDX71n", exchange: "BitMart", label: "BitMart Hot Wallet", chain: "solana" },
+
+  // BingX
+  { address: "5qpRPxz2f1k3xQeMuWMdR3F9cKn6pZ7pT4KeG5mPG2SX", exchange: "BingX", label: "BingX Hot Wallet", chain: "solana" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -191,6 +279,40 @@ const BTC_CEX: CexAddress[] = [
 
   // Robinhood
   { address: "bc1q7t9fxfaakmtk8pj7pzczylmr5enrk0v5v0gghg", exchange: "Robinhood", label: "Robinhood Cold Wallet", chain: "bitcoin" },
+
+  // Binance (additional)
+  { address: "3JZq4atUahhuA9rLhXLMhhTo133J9rF97j", exchange: "Binance", label: "Binance Hot Wallet 3", chain: "bitcoin" },
+  { address: "bc1qnkv8m07alowyu4y5rynql88r5kaqhhk2l3u5u4", exchange: "Binance", label: "Binance Hot Wallet 4", chain: "bitcoin" },
+
+  // Coinbase (additional)
+  { address: "3CwByky29sAyEYSnw9TFqJPiGjqGeifKPU", exchange: "Coinbase", label: "Coinbase Cold Wallet 2", chain: "bitcoin" },
+
+  // Kraken (additional)
+  { address: "bc1q5shngj24323nsrmxv99st02na6srekfctt30ch", exchange: "Kraken", label: "Kraken Cold Wallet 2", chain: "bitcoin" },
+
+  // OKX (additional)
+  { address: "bc1q2s3rjwvam9dt2ftt4sqxqjf3twav0gdx0k0q2etjz847darxyl8qh80gkv", exchange: "OKX", label: "OKX Cold Wallet", chain: "bitcoin" },
+
+  // Bybit (additional from PoR)
+  { address: "bc1qm6q4v3y7gksmhevj6pcp2u7h8g9hcg7l7ynxlp", exchange: "Bybit", label: "Bybit Hot Wallet 2", chain: "bitcoin" },
+
+  // Gemini (additional)
+  { address: "bc1q7sefr700fvr3c4t5yp2ftsjuenfrfcvqemc66r", exchange: "Gemini", label: "Gemini Hot Wallet", chain: "bitcoin" },
+
+  // HTX (additional)
+  { address: "3GKuBAVFijkv6NmTJb1WaQSsj5R35FHRK5", exchange: "HTX (Huobi)", label: "HTX Hot Wallet", chain: "bitcoin" },
+
+  // Crypto.com (additional)
+  { address: "bc1qr4dl5wa7kl8yu792dceg9z5knl2gkn220lk7a9", exchange: "Crypto.com", label: "Crypto.com Hot Wallet", chain: "bitcoin" },
+
+  // Deribit
+  { address: "1Dq9GXsraAGnQ1g1PdvzJv2poo5jMDfmab", exchange: "Deribit", label: "Deribit Hot Wallet", chain: "bitcoin" },
+
+  // BitMart
+  { address: "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64", exchange: "BitMart", label: "BitMart Hot Wallet", chain: "bitcoin" },
+
+  // Bithumb
+  { address: "3FHremcoNTy7LgCc9R3M3RGdN2VhZduRaJ", exchange: "Bithumb", label: "Bithumb Hot Wallet", chain: "bitcoin" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -234,6 +356,40 @@ const TRON_CEX: CexAddress[] = [
 
   // Sun.io / JustLend (semi-CEX)
   { address: "TKcEU8ekq2ZoFzLSGFYCUY6aocJBX9X31b", exchange: "Poloniex", label: "Poloniex Hot Wallet 2", chain: "tron" },
+
+  // Binance (additional)
+  { address: "TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi", exchange: "Binance", label: "Binance Hot Wallet 4", chain: "tron" },
+  { address: "TJDENsfBJs4RFETt1X1W8wMDc8M5XnJhCe", exchange: "Binance", label: "Binance Cold Wallet", chain: "tron" },
+
+  // OKX (additional)
+  { address: "TFVBaA1jSSBBsXQGLy7pUvLL6ML3UNaWyK", exchange: "OKX", label: "OKX Hot Wallet 3", chain: "tron" },
+
+  // Bybit (additional)
+  { address: "TLbBXA7VNQVVT49FEU6t7x57gFRxJHbJXp", exchange: "Bybit", label: "Bybit Hot Wallet 2", chain: "tron" },
+
+  // HTX (additional)
+  { address: "THGb1gvVW4HXFKz5Hd7YfHfq3QxUbvn3bi", exchange: "HTX (Huobi)", label: "HTX Hot Wallet 3", chain: "tron" },
+
+  // Bitfinex
+  { address: "TWFcifhBJvGe7jPyTtxjRu9BFgjLdKSRix", exchange: "Bitfinex", label: "Bitfinex Hot Wallet", chain: "tron" },
+
+  // Upbit
+  { address: "TYkXYiB79Khy9yHbbDnQi1zsKeSP4qJBhj", exchange: "Upbit", label: "Upbit Hot Wallet", chain: "tron" },
+
+  // BitMart
+  { address: "THaoP1mK1H1rMtBX1fVAsuPPPyGLJj4fSN", exchange: "BitMart", label: "BitMart Hot Wallet", chain: "tron" },
+
+  // Bithumb
+  { address: "TWBLqk3SZaKFoCoSWJ1GFRaxwHFtxYabLA", exchange: "Bithumb", label: "Bithumb Hot Wallet", chain: "tron" },
+
+  // WazirX
+  { address: "TMXqK6haoFgS6NBzKB9nGE4bTxUq4Fhcgy", exchange: "WazirX", label: "WazirX Hot Wallet", chain: "tron" },
+
+  // LBank
+  { address: "TW8RNzFmjPNnzXSbhMGLF1sPfATBRjNNHa", exchange: "LBank", label: "LBank Hot Wallet", chain: "tron" },
+
+  // CoinEx
+  { address: "TBiaE3pMHsZfFgTfN3kS9iuY1NJFB8cSC9", exchange: "CoinEx", label: "CoinEx Hot Wallet", chain: "tron" },
 ];
 
 // ═══════════════════════════════════════════════════════════════

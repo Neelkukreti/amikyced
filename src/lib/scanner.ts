@@ -9,6 +9,15 @@ export interface CexInteraction {
   timestamp?: string;
   amount?: string;
   counterparty: string;
+  indirect?: boolean; // true if detected via 2-hop analysis
+}
+
+export interface IndirectExposure {
+  intermediaryAddress: string;
+  exchange: string;
+  label: string;
+  direction: "sent" | "received"; // intermediary's direction with the CEX
+  confidence: "high" | "medium"; // high = multiple CEX txs, medium = single
 }
 
 export interface ScanResult {
@@ -18,10 +27,137 @@ export interface ScanResult {
   riskScore: number; // 0-100
   riskLevel: "none" | "low" | "medium" | "high" | "critical";
   interactions: CexInteraction[];
+  indirectExposures: IndirectExposure[];
   exchangesSeen: string[];
   totalInteractions: number;
   scanDuration: number;
   error?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EVM: fetch transaction list for any address (reused for 2-hop)
+// ═══════════════════════════════════════════════════════════════
+
+type TxRow = { from: string; to: string; hash: string; timeStamp: string; value: string };
+
+async function fetchEvmTxList(address: string): Promise<TxRow[]> {
+  const apiKey = process.env.ETHERSCAN_API_KEY || "";
+  let txList: TxRow[] = [];
+
+  if (apiKey) {
+    const url = `https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=500&sort=desc&apikey=${apiKey}`;
+    const { data } = await axios.get(url, { timeout: 15000 });
+    if (data.status === "1" && Array.isArray(data.result)) {
+      txList = data.result;
+    }
+  }
+
+  if (txList.length === 0) {
+    const url = `https://eth.blockscout.com/api/v2/addresses/${address}/transactions`;
+    const { data } = await axios.get(url, { timeout: 15000 });
+    if (data.items && Array.isArray(data.items)) {
+      txList = data.items.map((tx: { from: { hash: string }; to: { hash: string }; hash: string; timestamp: string; value: string }) => ({
+        from: tx.from?.hash || "",
+        to: tx.to?.hash || "",
+        hash: tx.hash,
+        timeStamp: tx.timestamp ? String(Math.floor(new Date(tx.timestamp).getTime() / 1000)) : "0",
+        value: tx.value || "0",
+      }));
+    }
+  }
+
+  return txList;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  2-hop indirect exposure checker (EVM only for now)
+//  Checks if counterparties themselves interact with known CEX wallets
+// ═══════════════════════════════════════════════════════════════
+
+async function checkIndirectExposureEvm(
+  counterparties: string[],
+  chain: Chain
+): Promise<IndirectExposure[]> {
+  if (chain !== "ethereum") return []; // Only EVM supported for now
+
+  const exposures: IndirectExposure[] = [];
+  const checked = new Set<string>();
+
+  // Limit to top 10 unique counterparties to avoid rate limits
+  const toCheck = counterparties.filter((addr) => {
+    if (checked.has(addr)) return false;
+    // Skip if it's already a known CEX address
+    if (lookupCex(addr, "ethereum")) return false;
+    checked.add(addr);
+    return true;
+  }).slice(0, 10);
+
+  // Check counterparties in batches of 3 (rate limit friendly)
+  for (let i = 0; i < toCheck.length; i += 3) {
+    const batch = toCheck.slice(i, i + 3);
+    const results = await Promise.allSettled(
+      batch.map(async (counterparty) => {
+        try {
+          const txList = await fetchEvmTxList(counterparty);
+          let cexHits = 0;
+          let lastExchange = "";
+          let lastLabel = "";
+          let lastDirection: "sent" | "received" = "sent";
+
+          for (const tx of txList.slice(0, 100)) {
+            const from = tx.from?.toLowerCase();
+            const to = tx.to?.toLowerCase();
+            const cp = counterparty.toLowerCase();
+
+            if (from === cp && to) {
+              const match = lookupCex(to, "ethereum");
+              if (match) {
+                cexHits++;
+                lastExchange = match.exchange;
+                lastLabel = match.label;
+                lastDirection = "sent";
+              }
+            }
+            if (to === cp && from) {
+              const match = lookupCex(from, "ethereum");
+              if (match) {
+                cexHits++;
+                lastExchange = match.exchange;
+                lastLabel = match.label;
+                lastDirection = "received";
+              }
+            }
+          }
+
+          if (cexHits > 0) {
+            return {
+              intermediaryAddress: counterparty,
+              exchange: lastExchange,
+              label: lastLabel,
+              direction: lastDirection,
+              confidence: cexHits >= 3 ? "high" : "medium",
+            } as IndirectExposure;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        exposures.push(r.value);
+      }
+    }
+
+    // Small delay between batches to respect rate limits
+    if (i + 3 < toCheck.length) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+
+  return exposures;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -31,34 +167,10 @@ export interface ScanResult {
 async function scanEvm(address: string): Promise<ScanResult> {
   const start = Date.now();
   const interactions: CexInteraction[] = [];
-  const apiKey = process.env.ETHERSCAN_API_KEY || "";
+  const counterparties: string[] = [];
 
   try {
-    // Try Etherscan V2 first (requires API key), fallback to Blockscout
-    let txList: { from: string; to: string; hash: string; timeStamp: string; value: string }[] = [];
-
-    if (apiKey) {
-      const url = `https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=500&sort=desc&apikey=${apiKey}`;
-      const { data } = await axios.get(url, { timeout: 15000 });
-      if (data.status === "1" && Array.isArray(data.result)) {
-        txList = data.result;
-      }
-    }
-
-    // Fallback: Blockscout (free, no key needed)
-    if (txList.length === 0) {
-      const url = `https://eth.blockscout.com/api/v2/addresses/${address}/transactions`;
-      const { data } = await axios.get(url, { timeout: 15000 });
-      if (data.items && Array.isArray(data.items)) {
-        txList = data.items.map((tx: { from: { hash: string }; to: { hash: string }; hash: string; timestamp: string; value: string }) => ({
-          from: tx.from?.hash || "",
-          to: tx.to?.hash || "",
-          hash: tx.hash,
-          timeStamp: tx.timestamp ? String(Math.floor(new Date(tx.timestamp).getTime() / 1000)) : "0",
-          value: tx.value || "0",
-        }));
-      }
-    }
+    const txList = await fetchEvmTxList(address);
 
     for (const tx of txList) {
       const from = tx.from?.toLowerCase();
@@ -78,6 +190,8 @@ async function scanEvm(address: string): Promise<ScanResult> {
             amount: (Number(tx.value) / 1e18).toFixed(4) + " ETH",
             counterparty: to,
           });
+        } else {
+          counterparties.push(to);
         }
       }
 
@@ -94,11 +208,28 @@ async function scanEvm(address: string): Promise<ScanResult> {
             amount: (Number(tx.value) / 1e18).toFixed(4) + " ETH",
             counterparty: from,
           });
+        } else {
+          counterparties.push(from);
         }
       }
     }
 
-    return buildResult(address, "ethereum", interactions, Date.now() - start);
+    // 2-hop: check if non-CEX counterparties interact with CEX wallets
+    const indirectExposures = await checkIndirectExposureEvm(counterparties, "ethereum");
+
+    // Add indirect interactions to the list with the indirect flag
+    for (const exp of indirectExposures) {
+      interactions.push({
+        exchange: exp.exchange,
+        label: `Indirect via ${exp.intermediaryAddress.slice(0, 8)}...`,
+        direction: exp.direction,
+        txHash: "",
+        counterparty: exp.intermediaryAddress,
+        indirect: true,
+      });
+    }
+
+    return buildResult(address, "ethereum", interactions, Date.now() - start, undefined, indirectExposures);
   } catch (err) {
     return buildResult(address, "ethereum", interactions, Date.now() - start, getErrorMessage(err));
   }
@@ -308,20 +439,31 @@ function buildResult(
   chain: Chain,
   interactions: CexInteraction[],
   duration: number,
-  error?: string
+  error?: string,
+  indirectExposures: IndirectExposure[] = []
 ): ScanResult {
+  const directInteractions = interactions.filter((i) => !i.indirect);
+  const indirectInteractions = interactions.filter((i) => i.indirect);
+
   // Deduplicate by exchange
-  const exchangesSeen = [...new Set(interactions.map((i) => i.exchange))];
-  const totalInteractions = interactions.length;
+  const exchangesSeen = [...new Set(directInteractions.map((i) => i.exchange))];
+  const totalInteractions = directInteractions.length;
 
   // Risk scoring
   let riskScore = 0;
-  if (totalInteractions > 0) riskScore += 30; // Any interaction = base risk
+  if (totalInteractions > 0) riskScore += 30; // Any direct interaction = base risk
   if (totalInteractions > 5) riskScore += 20;
   if (totalInteractions > 20) riskScore += 15;
   if (exchangesSeen.length > 1) riskScore += 15; // Multiple exchanges
   if (exchangesSeen.length > 3) riskScore += 10;
-  if (interactions.some((i) => i.direction === "sent")) riskScore += 10; // Deposited to CEX (stronger KYC signal)
+  if (directInteractions.some((i) => i.direction === "sent")) riskScore += 10; // Deposited to CEX
+
+  // Indirect exposure adds risk even when no direct CEX interaction found
+  if (indirectExposures.length > 0) {
+    riskScore += 15; // Base indirect risk
+    if (indirectExposures.some((e) => e.confidence === "high")) riskScore += 10;
+    if (indirectExposures.length > 3) riskScore += 5;
+  }
 
   riskScore = Math.min(100, riskScore);
 
@@ -331,15 +473,24 @@ function buildResult(
   else if (riskScore >= 35) riskLevel = "medium";
   else if (riskScore > 0) riskLevel = "low";
 
+  // Include indirect exchanges in exchangesSeen
+  const allExchangesSeen = [
+    ...new Set([
+      ...exchangesSeen,
+      ...indirectExposures.map((e) => `${e.exchange} (indirect)`),
+    ]),
+  ];
+
   return {
     address,
     chain,
-    isKyced: totalInteractions > 0,
+    isKyced: totalInteractions > 0 || indirectExposures.length > 0,
     riskScore,
     riskLevel,
-    interactions: interactions.slice(0, 50), // Cap results
-    exchangesSeen,
-    totalInteractions,
+    interactions: [...directInteractions, ...indirectInteractions].slice(0, 50),
+    indirectExposures,
+    exchangesSeen: allExchangesSeen,
+    totalInteractions: totalInteractions + indirectInteractions.length,
     scanDuration: duration,
     error,
   };
@@ -386,6 +537,7 @@ export async function scanAddress(address: string, chain?: Chain): Promise<ScanR
       riskScore: 0,
       riskLevel: "none",
       interactions: [],
+      indirectExposures: [],
       exchangesSeen: [],
       totalInteractions: 0,
       scanDuration: 0,
