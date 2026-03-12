@@ -1,5 +1,5 @@
 import axios from "axios";
-import { lookupCex, type Chain, type CexAddress } from "./cex-addresses";
+import { lookupCex, lookupSuspectedCex, lookupAny, type Chain, type CexAddress, type EntityType } from "./cex-addresses";
 
 export interface CexInteraction {
   exchange: string;
@@ -9,7 +9,9 @@ export interface CexInteraction {
   timestamp?: string;
   amount?: string;
   counterparty: string;
-  indirect?: boolean; // true if detected via 2-hop analysis
+  indirect?: boolean;   // true if detected via 2-hop analysis
+  suspected?: boolean;  // true if from suspected (unconfirmed) CEX list
+  entityType?: EntityType; // "cex" | "celebrity" | "sanctions" | "rugpull" | "smartmoney" | "fund" | "government" | "protocol"
 }
 
 export interface IndirectExposure {
@@ -20,17 +22,22 @@ export interface IndirectExposure {
   confidence: "high" | "medium"; // high = multiple CEX txs, medium = single
 }
 
+export type ReputationGrade = "A+" | "A" | "B+" | "B" | "C" | "D" | "F";
+
 export interface ScanResult {
   address: string;
   chain: Chain;
   isKyced: boolean;
   riskScore: number; // 0-100
   riskLevel: "none" | "low" | "medium" | "high" | "critical";
+  reputationScore: number; // 0-100 (higher = better)
+  reputationGrade: ReputationGrade;
   interactions: CexInteraction[];
   indirectExposures: IndirectExposure[];
   exchangesSeen: string[];
   totalInteractions: number;
   scanDuration: number;
+  celebrityConnections: string[]; // Names of celebrities detected (direct or 2-hop)
   error?: string;
 }
 
@@ -38,35 +45,126 @@ export interface ScanResult {
 //  EVM: fetch transaction list for any address (reused for 2-hop)
 // ═══════════════════════════════════════════════════════════════
 
-type TxRow = { from: string; to: string; hash: string; timeStamp: string; value: string };
+type TxRow = { from: string; to: string; hash: string; timeStamp: string; value: string; tokenSymbol?: string; tokenDecimal?: string; isError?: string; functionName?: string };
 
-async function fetchEvmTxList(address: string): Promise<TxRow[]> {
-  const apiKey = process.env.ETHERSCAN_API_KEY || "";
-  let txList: TxRow[] = [];
+// ═══════════════════════════════════════════════════════════════
+//  Dust / spam filter — skip irrelevant transactions
+// ═══════════════════════════════════════════════════════════════
 
-  if (apiKey) {
-    const url = `https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=500&sort=desc&apikey=${apiKey}`;
+const DUST_THRESHOLD_ETH = 0.0001; // ~$0.03 — skip dust transfers
+const DUST_THRESHOLD_TOKEN = 0.01; // Skip negligible token amounts
+
+function isDustTransaction(tx: TxRow): boolean {
+  // Skip failed transactions
+  if (tx.isError === "1") return true;
+  // Skip contract creation (no "to" address)
+  if (!tx.to) return true;
+  // Skip zero-value internal calls (contract interactions, not actual transfers)
+  if (tx.value === "0" && !tx.tokenSymbol) return true;
+
+  if (tx.tokenSymbol && tx.tokenDecimal) {
+    const decimals = Number(tx.tokenDecimal);
+    const val = Number(tx.value) / Math.pow(10, decimals);
+    return val < DUST_THRESHOLD_TOKEN;
+  }
+  // Native ETH/BNB/MATIC dust
+  const ethValue = Number(tx.value) / 1e18;
+  return ethValue < DUST_THRESHOLD_ETH;
+}
+
+// EVM chains to scan (Etherscan V2 supports all via chainid param)
+const EVM_CHAINS = [
+  { chainId: 1, name: "ETH Mainnet", nativeSymbol: "ETH", decimals: 18 },
+  { chainId: 42161, name: "Arbitrum", nativeSymbol: "ETH", decimals: 18 },
+  { chainId: 56, name: "BSC", nativeSymbol: "BNB", decimals: 18 },
+  { chainId: 137, name: "Polygon", nativeSymbol: "MATIC", decimals: 18 },
+  { chainId: 10, name: "Optimism", nativeSymbol: "ETH", decimals: 18 },
+  { chainId: 8453, name: "Base", nativeSymbol: "ETH", decimals: 18 },
+];
+
+async function fetchEvmTxListForChain(
+  address: string,
+  chainId: number,
+  nativeSymbol: string,
+  apiKey: string
+): Promise<TxRow[]> {
+  const txList: TxRow[] = [];
+
+  if (!apiKey) return txList;
+
+  // Fetch native transactions
+  try {
+    const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=200&sort=desc&apikey=${apiKey}`;
     const { data } = await axios.get(url, { timeout: 15000 });
     if (data.status === "1" && Array.isArray(data.result)) {
-      txList = data.result;
+      for (const tx of data.result) {
+        tx.tokenSymbol = nativeSymbol;
+        txList.push(tx);
+      }
     }
+  } catch {
+    // Skip failed chain
   }
 
-  if (txList.length === 0) {
-    const url = `https://eth.blockscout.com/api/v2/addresses/${address}/transactions`;
+  // Fetch ERC-20 token transfers
+  try {
+    const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&address=${address}&startblock=0&endblock=99999999&page=1&offset=200&sort=desc&apikey=${apiKey}`;
     const { data } = await axios.get(url, { timeout: 15000 });
-    if (data.items && Array.isArray(data.items)) {
-      txList = data.items.map((tx: { from: { hash: string }; to: { hash: string }; hash: string; timestamp: string; value: string }) => ({
-        from: tx.from?.hash || "",
-        to: tx.to?.hash || "",
-        hash: tx.hash,
-        timeStamp: tx.timestamp ? String(Math.floor(new Date(tx.timestamp).getTime() / 1000)) : "0",
-        value: tx.value || "0",
-      }));
+    if (data.status === "1" && Array.isArray(data.result)) {
+      txList.push(...data.result);
     }
+  } catch {
+    // Skip failed token fetch
   }
 
   return txList;
+}
+
+async function fetchEvmTxList(address: string): Promise<TxRow[]> {
+  const apiKey = process.env.ETHERSCAN_API_KEY || "";
+  let allTxs: TxRow[] = [];
+
+  if (apiKey) {
+    // Scan all EVM chains in parallel batches of 3 (rate limit: 5 calls/sec, each chain = 2 calls)
+    for (let i = 0; i < EVM_CHAINS.length; i += 3) {
+      const batch = EVM_CHAINS.slice(i, i + 3);
+      const results = await Promise.allSettled(
+        batch.map((chain) =>
+          fetchEvmTxListForChain(address, chain.chainId, chain.nativeSymbol, apiKey)
+        )
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          allTxs.push(...r.value);
+        }
+      }
+      // Small delay between batches to respect rate limits
+      if (i + 3 < EVM_CHAINS.length) {
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+  }
+
+  // Blockscout fallback only if we got nothing (no API key or all chains empty)
+  if (allTxs.length === 0) {
+    try {
+      const url = `https://eth.blockscout.com/api/v2/addresses/${address}/transactions`;
+      const { data } = await axios.get(url, { timeout: 15000 });
+      if (data.items && Array.isArray(data.items)) {
+        allTxs = data.items.map((tx: { from: { hash: string }; to: { hash: string }; hash: string; timestamp: string; value: string }) => ({
+          from: tx.from?.hash || "",
+          to: tx.to?.hash || "",
+          hash: tx.hash,
+          timeStamp: tx.timestamp ? String(Math.floor(new Date(tx.timestamp).getTime() / 1000)) : "0",
+          value: tx.value || "0",
+        }));
+      }
+    } catch {
+      // Blockscout fallback failed
+    }
+  }
+
+  return allTxs;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -88,6 +186,8 @@ async function checkIndirectExposureEvm(
     if (checked.has(addr)) return false;
     // Skip if it's already a known CEX address
     if (lookupCex(addr, "ethereum")) return false;
+    // Skip if it's any known labeled entity (protocol routers, bridges, etc. generate false 2-hop hits)
+    if (lookupAny(addr, "ethereum")) return false;
     checked.add(addr);
     return true;
   }).slice(0, 10);
@@ -129,13 +229,14 @@ async function checkIndirectExposureEvm(
             }
           }
 
-          if (cexHits > 0) {
+          // Require at least 2 CEX hits to avoid false positives from single interactions
+          if (cexHits >= 2) {
             return {
               intermediaryAddress: counterparty,
               exchange: lastExchange,
               label: lastLabel,
               direction: lastDirection,
-              confidence: cexHits >= 3 ? "high" : "medium",
+              confidence: cexHits >= 5 ? "high" : "medium",
             } as IndirectExposure;
           }
           return null;
@@ -172,42 +273,70 @@ async function scanEvm(address: string): Promise<ScanResult> {
   try {
     const txList = await fetchEvmTxList(address);
 
+    // Track seen exchange+direction combos to deduplicate repeated hits
+    const seenInteractions = new Set<string>();
+
     for (const tx of txList) {
+      // Skip dust/spam/failed transactions
+      if (isDustTransaction(tx)) continue;
+
       const from = tx.from?.toLowerCase();
       const to = tx.to?.toLowerCase();
       const addr = address.toLowerCase();
 
-      // Check if we sent TO a CEX
+      // Format amount from tx (handles both native and token transfers)
+      const formatAmount = (tx: TxRow): string => {
+        if (tx.tokenSymbol && tx.tokenDecimal) {
+          const decimals = Number(tx.tokenDecimal);
+          const val = Number(tx.value) / Math.pow(10, decimals);
+          return val.toFixed(decimals > 6 ? 4 : 2) + " " + tx.tokenSymbol;
+        }
+        return (Number(tx.value) / 1e18).toFixed(4) + " ETH";
+      };
+
+      const addInteraction = (entry: CexAddress, dir: "sent" | "received", cp: string, isSuspected = false) => {
+        // Cap at 5 interactions per exchange+direction to reduce noise
+        const key = `${entry.exchange}:${dir}`;
+        const count = [...seenInteractions].filter(k => k === key).length;
+        if (count >= 5) return;
+        seenInteractions.add(key);
+        interactions.push({
+          exchange: entry.exchange, label: entry.label, direction: dir,
+          txHash: tx.hash, timestamp: new Date(Number(tx.timeStamp) * 1000).toISOString(),
+          amount: formatAmount(tx), counterparty: cp,
+          ...(isSuspected && { suspected: true }),
+          entityType: entry.entityType || "cex",
+        });
+      };
+
+      // Check if we sent TO a known wallet
       if (from === addr && to) {
         const match = lookupCex(to, "ethereum");
+        const suspected = !match ? lookupSuspectedCex(to, "ethereum") : null;
+        const anyMatch = !match && !suspected ? lookupAny(to, "ethereum") : null;
+
         if (match) {
-          interactions.push({
-            exchange: match.exchange,
-            label: match.label,
-            direction: "sent",
-            txHash: tx.hash,
-            timestamp: new Date(Number(tx.timeStamp) * 1000).toISOString(),
-            amount: (Number(tx.value) / 1e18).toFixed(4) + " ETH",
-            counterparty: to,
-          });
+          addInteraction(match, "sent", to);
+        } else if (suspected) {
+          addInteraction(suspected, "sent", to, true);
+        } else if (anyMatch) {
+          addInteraction(anyMatch, "sent", to);
         } else {
           counterparties.push(to);
         }
       }
 
-      // Check if we received FROM a CEX
+      // Check if we received FROM a known wallet
       if (to === addr && from) {
         const match = lookupCex(from, "ethereum");
+        const suspected = !match ? lookupSuspectedCex(from, "ethereum") : null;
+        const anyMatch = !match && !suspected ? lookupAny(from, "ethereum") : null;
         if (match) {
-          interactions.push({
-            exchange: match.exchange,
-            label: match.label,
-            direction: "received",
-            txHash: tx.hash,
-            timestamp: new Date(Number(tx.timeStamp) * 1000).toISOString(),
-            amount: (Number(tx.value) / 1e18).toFixed(4) + " ETH",
-            counterparty: from,
-          });
+          addInteraction(match, "received", from);
+        } else if (suspected) {
+          addInteraction(suspected, "received", from, true);
+        } else if (anyMatch) {
+          addInteraction(anyMatch, "received", from);
         } else {
           counterparties.push(from);
         }
@@ -283,7 +412,7 @@ async function scanSolana(address: string): Promise<ScanResult> {
 
           for (const acc of accounts) {
             if (acc === address) continue;
-            const match = lookupCex(acc, "solana");
+            const match = lookupCex(acc, "solana") || lookupAny(acc, "solana");
             if (match) {
               const isSender = accounts[0] === address;
               interactions.push({
@@ -295,6 +424,7 @@ async function scanSolana(address: string): Promise<ScanResult> {
                   ? new Date(sig.blockTime * 1000).toISOString()
                   : undefined,
                 counterparty: acc,
+                entityType: match.entityType || "cex",
               });
               break; // One match per tx is enough
             }
@@ -329,16 +459,13 @@ async function scanBitcoin(address: string): Promise<ScanResult> {
         for (const input of tx.inputs || []) {
           const inputAddr = input.prev_out?.addr;
           if (!inputAddr || inputAddr === address) continue;
-          const match = lookupCex(inputAddr, "bitcoin");
+          const match = lookupCex(inputAddr, "bitcoin") || lookupAny(inputAddr, "bitcoin");
           if (match) {
             interactions.push({
-              exchange: match.exchange,
-              label: match.label,
-              direction: "received",
-              txHash: tx.hash,
-              timestamp: tx.time ? new Date(tx.time * 1000).toISOString() : undefined,
+              exchange: match.exchange, label: match.label, direction: "received",
+              txHash: tx.hash, timestamp: tx.time ? new Date(tx.time * 1000).toISOString() : undefined,
               amount: input.prev_out.value ? (input.prev_out.value / 1e8).toFixed(8) + " BTC" : undefined,
-              counterparty: inputAddr,
+              counterparty: inputAddr, entityType: match.entityType || "cex",
             });
           }
         }
@@ -347,21 +474,17 @@ async function scanBitcoin(address: string): Promise<ScanResult> {
         for (const output of tx.out || []) {
           const outputAddr = output.addr;
           if (!outputAddr || outputAddr === address) continue;
-          const match = lookupCex(outputAddr, "bitcoin");
+          const match = lookupCex(outputAddr, "bitcoin") || lookupAny(outputAddr, "bitcoin");
           if (match) {
-            // If our address is in inputs, we sent to this CEX
             const isSender = tx.inputs?.some(
               (inp: { prev_out?: { addr?: string } }) => inp.prev_out?.addr === address
             );
             if (isSender) {
               interactions.push({
-                exchange: match.exchange,
-                label: match.label,
-                direction: "sent",
-                txHash: tx.hash,
-                timestamp: tx.time ? new Date(tx.time * 1000).toISOString() : undefined,
+                exchange: match.exchange, label: match.label, direction: "sent",
+                txHash: tx.hash, timestamp: tx.time ? new Date(tx.time * 1000).toISOString() : undefined,
                 amount: output.value ? (output.value / 1e8).toFixed(8) + " BTC" : undefined,
-                counterparty: outputAddr,
+                counterparty: outputAddr, entityType: match.entityType || "cex",
               });
             }
           }
@@ -382,44 +505,92 @@ async function scanBitcoin(address: string): Promise<ScanResult> {
 async function scanTron(address: string): Promise<ScanResult> {
   const start = Date.now();
   const interactions: CexInteraction[] = [];
+  const seenKeys = new Set<string>();
+
+  const addHit = (match: CexAddress, dir: "sent" | "received", txHash: string, ts: number | undefined, amount: string | undefined, cp: string) => {
+    const key = `${match.exchange}:${dir}`;
+    const count = [...seenKeys].filter(k => k === key).length;
+    if (count >= 5) return;
+    seenKeys.add(key);
+    interactions.push({
+      exchange: match.exchange, label: match.label, direction: dir,
+      txHash, timestamp: ts ? new Date(ts).toISOString() : undefined,
+      amount, counterparty: cp, entityType: match.entityType || "cex",
+    });
+  };
 
   try {
-    const url = `https://apilist.tronscanapi.com/api/transaction?sort=-timestamp&count=true&limit=200&start=0&address=${address}`;
-    const { data } = await axios.get(url, { timeout: 15000 });
+    // Fetch both normal transactions AND TRC-20 transfers in parallel
+    const [normalRes, trc20Res] = await Promise.allSettled([
+      axios.get(`https://apilist.tronscanapi.com/api/transaction?sort=-timestamp&count=true&limit=200&start=0&address=${address}`, { timeout: 15000 }),
+      axios.get(`https://apilist.tronscanapi.com/api/contract/events?sort=-timestamp&count=true&limit=200&start=0&address=${address}`, { timeout: 15000 }),
+    ]);
 
-    if (data.data && Array.isArray(data.data)) {
-      for (const tx of data.data) {
-        const from = tx.ownerAddress || tx.contractData?.owner_address;
-        const to = tx.toAddress || tx.contractData?.to_address;
+    // ── Normal TRX transactions ──
+    if (normalRes.status === "fulfilled" && normalRes.value.data?.data) {
+      for (const tx of normalRes.value.data.data) {
+        const from = tx.ownerAddress;
+        const ts = tx.timestamp;
 
-        if (from === address && to) {
-          const match = lookupCex(to, "tron");
-          if (match) {
-            interactions.push({
-              exchange: match.exchange,
-              label: match.label,
-              direction: "sent",
-              txHash: tx.hash,
-              timestamp: tx.timestamp ? new Date(tx.timestamp).toISOString() : undefined,
-              amount: tx.amount ? (tx.amount / 1e6).toFixed(2) + " TRX" : undefined,
-              counterparty: to,
-            });
+        // For TRC-20 calls (contractType 31), the real recipient is in trigger_info
+        if (tx.contractType === 31 && tx.trigger_info?.parameter?._to) {
+          const realTo = tx.trigger_info.parameter._to;
+          const rawValue = tx.trigger_info.parameter._value;
+          // Get token info from contractInfo or trigger_info
+          const contractAddr = tx.trigger_info.contract_address;
+          const tokenInfo = tx.contractInfo?.[contractAddr];
+          const tokenName = tokenInfo?.tag1 || tokenInfo?.name || "Token";
+          const isUsdt = tokenName.includes("USDT") || tokenName.includes("Tether");
+          const decimals = isUsdt ? 6 : 6; // Most TRC-20 tokens are 6 decimals
+          const tokenAmount = rawValue ? (Number(rawValue) / Math.pow(10, decimals)).toFixed(2) + " " + (isUsdt ? "USDT" : tokenName) : undefined;
+
+          if (from === address) {
+            const match = lookupCex(realTo, "tron") || lookupAny(realTo, "tron");
+            if (match) addHit(match, "sent", tx.hash, ts, tokenAmount, realTo);
+          } else if (realTo === address) {
+            const match = lookupCex(from, "tron") || lookupAny(from, "tron");
+            if (match) addHit(match, "received", tx.hash, ts, tokenAmount, from);
+          }
+        } else {
+          // Plain TRX transfer
+          const to = tx.toAddress || tx.contractData?.to_address;
+          const trxAmount = tx.amount && tx.amount > 0 ? (tx.amount / 1e6).toFixed(2) + " TRX" : undefined;
+
+          if (from === address && to) {
+            const match = lookupCex(to, "tron") || lookupAny(to, "tron");
+            if (match) addHit(match, "sent", tx.hash, ts, trxAmount, to);
+          }
+          if (to === address && from) {
+            const match = lookupCex(from, "tron") || lookupAny(from, "tron");
+            if (match) addHit(match, "received", tx.hash, ts, trxAmount, from);
           }
         }
+      }
+    }
 
+    // ── TRC-20 token transfer events (catches transfers the normal endpoint misses) ──
+    if (trc20Res.status === "fulfilled" && trc20Res.value.data?.data) {
+      for (const evt of trc20Res.value.data.data) {
+        if (evt.event_name !== "Transfer") continue;
+        const from = evt.result?.from || evt.result?.[0];
+        const to = evt.result?.to || evt.result?.[1];
+        const rawValue = evt.result?.value || evt.result?.[2];
+        const tokenName = evt.tokenInfo?.tokenAbbr || evt.contract_address_tag || "Token";
+        const decimals = evt.tokenInfo?.tokenDecimal || 6;
+        const amount = rawValue ? (Number(rawValue) / Math.pow(10, decimals)).toFixed(2) + " " + tokenName : undefined;
+        const txHash = evt.transaction_id || evt.event_id || "";
+        const ts = evt.block_timestamp;
+
+        // Skip if we already have this tx from the normal endpoint
+        if (txHash && interactions.some(i => i.txHash === txHash)) continue;
+
+        if (from === address && to) {
+          const match = lookupCex(to, "tron") || lookupAny(to, "tron");
+          if (match) addHit(match, "sent", txHash, ts, amount, to);
+        }
         if (to === address && from) {
-          const match = lookupCex(from, "tron");
-          if (match) {
-            interactions.push({
-              exchange: match.exchange,
-              label: match.label,
-              direction: "received",
-              txHash: tx.hash,
-              timestamp: tx.timestamp ? new Date(tx.timestamp).toISOString() : undefined,
-              amount: tx.amount ? (tx.amount / 1e6).toFixed(2) + " TRX" : undefined,
-              counterparty: from,
-            });
-          }
+          const match = lookupCex(from, "tron") || lookupAny(from, "tron");
+          if (match) addHit(match, "received", txHash, ts, amount, from);
         }
       }
     }
@@ -449,18 +620,31 @@ function buildResult(
   const exchangesSeen = [...new Set(directInteractions.map((i) => i.exchange))];
   const totalInteractions = directInteractions.length;
 
-  // Risk scoring
+  // Risk scoring — entity-type-aware
   let riskScore = 0;
-  if (totalInteractions > 0) riskScore += 30; // Any direct interaction = base risk
-  if (totalInteractions > 5) riskScore += 20;
-  if (totalInteractions > 20) riskScore += 15;
-  if (exchangesSeen.length > 1) riskScore += 15; // Multiple exchanges
+  const cexInteractions = directInteractions.filter((i) => !i.entityType || i.entityType === "cex");
+  const sanctionsHits = directInteractions.filter((i) => i.entityType === "sanctions");
+  const rugpullHits = directInteractions.filter((i) => i.entityType === "rugpull");
+
+  // CEX exposure risk (traditional scoring)
+  if (cexInteractions.length > 0) riskScore += 30;
+  if (cexInteractions.length > 5) riskScore += 20;
+  if (cexInteractions.length > 20) riskScore += 15;
+  if (exchangesSeen.length > 1) riskScore += 15;
   if (exchangesSeen.length > 3) riskScore += 10;
-  if (directInteractions.some((i) => i.direction === "sent")) riskScore += 10; // Deposited to CEX
+  if (cexInteractions.some((i) => i.direction === "sent")) riskScore += 10;
+
+  // Sanctions exposure — CRITICAL risk
+  if (sanctionsHits.length > 0) riskScore += 40;
+  if (sanctionsHits.length > 3) riskScore += 20;
+
+  // Rug pull / hack exposure
+  if (rugpullHits.length > 0) riskScore += 25;
+  if (rugpullHits.length > 3) riskScore += 15;
 
   // Indirect exposure adds risk even when no direct CEX interaction found
   if (indirectExposures.length > 0) {
-    riskScore += 15; // Base indirect risk
+    riskScore += 15;
     if (indirectExposures.some((e) => e.confidence === "high")) riskScore += 10;
     if (indirectExposures.length > 3) riskScore += 5;
   }
@@ -472,6 +656,39 @@ function buildResult(
   else if (riskScore >= 60) riskLevel = "high";
   else if (riskScore >= 35) riskLevel = "medium";
   else if (riskScore > 0) riskLevel = "low";
+
+  // Reputation score: inverse of risk, boosted by positive signals
+  let reputationScore = 100 - riskScore;
+  // Bonus for smart money / fund connections
+  const smartMoneyHits = directInteractions.filter((i) => i.entityType === "smartmoney" || i.entityType === "fund");
+  if (smartMoneyHits.length > 0) reputationScore = Math.min(100, reputationScore + 5);
+  // Bonus for protocol interactions (active DeFi user)
+  const protocolHits = directInteractions.filter((i) => i.entityType === "protocol");
+  if (protocolHits.length > 0) reputationScore = Math.min(100, reputationScore + 5);
+  // Penalty for sanctions (double-dip with risk already, but ensure F grade)
+  if (sanctionsHits.length > 0) reputationScore = Math.max(0, reputationScore - 20);
+  reputationScore = Math.max(0, Math.min(100, reputationScore));
+
+  let reputationGrade: ReputationGrade = "A+";
+  if (reputationScore >= 95) reputationGrade = "A+";
+  else if (reputationScore >= 85) reputationGrade = "A";
+  else if (reputationScore >= 75) reputationGrade = "B+";
+  else if (reputationScore >= 65) reputationGrade = "B";
+  else if (reputationScore >= 50) reputationGrade = "C";
+  else if (reputationScore >= 30) reputationGrade = "D";
+  else reputationGrade = "F";
+
+  // Celebrity connections
+  const celebrityConnections = [
+    ...new Set([
+      ...directInteractions.filter((i) => i.entityType === "celebrity").map((i) => i.exchange),
+      ...indirectExposures.filter((e) => {
+        // Check if intermediary connects to a celebrity (from the label)
+        const match = lookupAny(e.intermediaryAddress, chain);
+        return match?.entityType === "celebrity";
+      }).map((e) => e.exchange),
+    ]),
+  ];
 
   // Include indirect exchanges in exchangesSeen
   const allExchangesSeen = [
@@ -487,11 +704,14 @@ function buildResult(
     isKyced: totalInteractions > 0 || indirectExposures.length > 0,
     riskScore,
     riskLevel,
+    reputationScore,
+    reputationGrade,
     interactions: [...directInteractions, ...indirectInteractions].slice(0, 50),
     indirectExposures,
     exchangesSeen: allExchangesSeen,
     totalInteractions: totalInteractions + indirectInteractions.length,
     scanDuration: duration,
+    celebrityConnections,
     error,
   };
 }
@@ -536,11 +756,14 @@ export async function scanAddress(address: string, chain?: Chain): Promise<ScanR
       isKyced: false,
       riskScore: 0,
       riskLevel: "none",
+      reputationScore: 100,
+      reputationGrade: "A+",
       interactions: [],
       indirectExposures: [],
       exchangesSeen: [],
       totalInteractions: 0,
       scanDuration: 0,
+      celebrityConnections: [],
       error: "Could not detect chain. Please select manually.",
     };
   }
