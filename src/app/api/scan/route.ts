@@ -1,8 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scanAddress, detectChain } from "@/lib/scanner";
+import type { ScanResult } from "@/lib/scanner";
 import type { Chain } from "@/lib/cex-addresses";
 import { verifySessionCookie, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { canScan, recordScan, canScanIp, canDeepScanIp, recordScanIp } from "@/lib/usage-store";
+
+// In-process scan cache: address+chain → result, TTL 10 min
+const g = globalThis as typeof globalThis & { __scanCache?: Map<string, { result: unknown; ts: number }> };
+if (!g.__scanCache) g.__scanCache = new Map();
+const CACHE_TTL = 10 * 60 * 1000;
+
+function getCached(key: string) {
+  const entry = g.__scanCache!.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) { g.__scanCache!.delete(key); return null; }
+  return entry.result;
+}
+function setCached(key: string, result: unknown) {
+  if (g.__scanCache!.size > 500) {
+    const oldest = [...g.__scanCache!.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+    g.__scanCache!.delete(oldest[0]);
+  }
+  g.__scanCache!.set(key, { result, ts: Date.now() });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -73,8 +93,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Run scan
-    const result = await scanAddress(trimmed, detectedChain);
+    // Run scan (with cache)
+    const cacheKey = `${trimmed.toLowerCase()}:${detectedChain}`;
+    const cached = getCached(cacheKey) as ScanResult | null;
+    const result: ScanResult = cached ? structuredClone(cached) : await scanAddress(trimmed, detectedChain);
+    if (!cached) setCached(cacheKey, result);
 
     // Strip 2-hop data if not a deep scan
     if (!deep) {

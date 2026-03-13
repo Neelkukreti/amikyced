@@ -119,9 +119,17 @@ const CHAIN_ICONS: Record<string, string> = {
   tron: "◆",
 };
 
+const AVAILABLE_LOGOS = new Set([
+  "binance","bingx","bitfinex","bitflyer","bitget","bithumb","bitmart","bitstamp",
+  "bitvavo","blockchain-com","bybit","celsius","coinbase","coindcx","coinex",
+  "coinone","crypto-com","deribit","digifinex","ftx","gate-io","gemini","htx-huobi-",
+  "korbit","kraken","kucoin","lbank","luno","mexc","okx","paribu","poloniex",
+  "robinhood","upbit","voyager","wazirx","whitebit","wintermute","zebpay",
+]);
+
 function exchangeLogoUrl(name: string): string | null {
   const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
-  return `/exchanges/${slug}.png`;
+  return AVAILABLE_LOGOS.has(slug) ? `/exchanges/${slug}.png` : null;
 }
 
 function ExchangeLogo({ name, size = 16 }: { name: string; size?: number }) {
