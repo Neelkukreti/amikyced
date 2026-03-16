@@ -571,6 +571,25 @@ export default function Home() {
               </p>
             </div>
 
+            {/* ── India Fedha Academy promo (landing page) ── */}
+            {isIndia && (
+              <div className="animate-fade-in stagger-4 mt-6 w-full max-w-xl" style={{ position: "relative", zIndex: 1 }}>
+                <a
+                  href="https://fedhaacademy.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5"
+                  style={{ border: "1px solid rgba(99,102,241,0.2)", borderRadius: 20, background: "rgba(99,102,241,0.04)", padding: "8px 18px", textDecoration: "none", transition: "all 0.15s" }}
+                >
+                  <span style={{ fontSize: 14 }}>&#127891;</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 13, color: "rgb(165,180,252)" }}>
+                    Free crypto courses for Indian investors — <span style={{ fontWeight: 600 }}>Fedha Academy</span>
+                  </span>
+                  <span style={{ fontSize: 12, color: "rgb(129,140,248)" }}>&rarr;</span>
+                </a>
+              </div>
+            )}
+
             {/* Stats toggle */}
             {stats && (
               <div className="mt-10 flex flex-col items-center w-full max-w-2xl" style={{ zIndex: 1 }}>
@@ -1018,7 +1037,54 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Auth-required banner removed — 2-hop is now free for everyone */}
+            {/* ── Bookmark prompt ── */}
+            <div className="animate-fade-in-up stagger-2" style={{ border: "1px solid var(--edge-strong)", borderRadius: 10, background: "var(--surface-1)", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div className="flex items-center gap-2.5">
+                <span style={{ fontSize: 16 }}>&#11088;</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--secondary)" }}>
+                  Bookmark this tool — scan any wallet before you interact with it
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  try {
+                    // Modern bookmark hint — can't auto-bookmark, but prompt the user
+                    if (navigator.clipboard) { navigator.clipboard.writeText("https://amikyced.vercel.app"); }
+                  } catch {}
+                  alert("Press Ctrl+D (Cmd+D on Mac) to bookmark this page!");
+                }}
+                style={{ flexShrink: 0, border: "1px solid var(--edge-strong)", borderRadius: 6, background: "var(--surface-2)", padding: "6px 14px", fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 600, color: "var(--primary)", cursor: "pointer", letterSpacing: "0.04em", whiteSpace: "nowrap" }}
+              >
+                Bookmark
+              </button>
+            </div>
+
+            {/* ── India Fedha Academy promo (post-scan) ── */}
+            {isIndia && (
+              <div className="animate-fade-in-up stagger-2" style={{
+                border: "1px solid rgba(99,102,241,0.2)",
+                borderRadius: 10,
+                background: "linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(139,92,246,0.03) 100%)",
+                padding: "14px 18px",
+              }}>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <span style={{ fontSize: 16 }}>&#127891;</span>
+                    <span style={{ fontSize: 13, color: "var(--secondary)" }}>
+                      Learn crypto trading &amp; DeFi for free — <span style={{ fontWeight: 600, color: "rgb(165,180,252)" }}>Fedha Academy</span>
+                    </span>
+                  </div>
+                  <a
+                    href="https://fedhaacademy.in"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ flexShrink: 0, border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, background: "rgba(99,102,241,0.08)", padding: "6px 14px", fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 600, color: "rgb(129,140,248)", textDecoration: "none", letterSpacing: "0.04em", whiteSpace: "nowrap" }}
+                  >
+                    Start Learning
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* ── Sanctions warning ── */}
             {result.interactions.some((i) => i.entityType === "sanctions") && (
@@ -1443,47 +1509,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── India Fedha Academy promo ── */}
-        {isIndia && result && (
-          <div className="mt-6 animate-fade-in-up" style={{
-            border: "1px solid rgba(99,102,241,0.2)",
-            borderRadius: 12,
-            background: "linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(139,92,246,0.03) 100%)",
-            padding: "18px 22px",
-          }}>
-            <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: "rgb(129,140,248)", fontFamily: "var(--font-display)" }}>
-                  🎓 Learn Crypto for Free
-                </p>
-                <p className="mt-1" style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.6 }}>
-                  Master crypto trading, DeFi, and blockchain fundamentals with <span style={{ fontWeight: 600, color: "rgb(165,180,252)" }}>Fedha Academy</span> — free courses built for Indian investors.
-                </p>
-              </div>
-              <a
-                href="https://fedhaacademy.in"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  flexShrink: 0,
-                  border: "1px solid rgba(99,102,241,0.4)",
-                  borderRadius: 8,
-                  background: "rgba(99,102,241,0.1)",
-                  padding: "10px 20px",
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  color: "rgb(129,140,248)",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                  transition: "all 0.15s",
-                }}
-              >
-                Start Learning →
-              </a>
-            </div>
-          </div>
-        )}
+        {/* Fedha Academy promo moved to post-scan result card area */}
 
         {/* ══════════════════════════════════════
             SUBMIT ADDRESS
