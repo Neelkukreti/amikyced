@@ -41,6 +41,10 @@ interface IndirectExposure {
   label: string;
   direction: "sent" | "received";
   confidence: "high" | "medium";
+  userTxHash?: string;
+  userTxAmount?: string;
+  userTxDirection?: "sent" | "received";
+  userTxTimestamp?: string;
 }
 
 type ReputationGrade = "A+" | "A" | "B+" | "B" | "C" | "D" | "F";
@@ -1202,8 +1206,32 @@ export default function Home() {
                 </details>
 
                 <div className="space-y-4">
-                  {result.indirectExposures.map((exp, i) => (
+                  {result.indirectExposures.map((exp, i) => {
+                    const userDir = exp.userTxDirection || "sent";
+                    const arrowColor1 = userDir === "sent" ? "rgba(255,61,61,0.5)" : "rgba(0,232,150,0.5)";
+                    const gradientDir1 = userDir === "sent"
+                      ? "linear-gradient(90deg, var(--edge-strong), " + arrowColor1 + ")"
+                      : "linear-gradient(90deg, " + arrowColor1 + ", var(--edge-strong))";
+                    return (
                     <div key={i}>
+                      {/* Transaction amount label */}
+                      {exp.userTxAmount && (
+                        <div className="text-center mb-1.5">
+                          {exp.userTxHash ? (
+                            <a href={`${EXPLORER_URLS[result.chain].tx}${exp.userTxHash}`} target="_blank" rel="noopener noreferrer"
+                              style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)", textDecoration: "none", borderBottom: "1px dashed var(--edge-strong)" }}
+                            >
+                              {userDir === "sent" ? "Sent" : "Received"} {exp.userTxAmount}
+                              {exp.userTxTimestamp && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{new Date(exp.userTxTimestamp).toLocaleDateString()}</span>}
+                            </a>
+                          ) : (
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)" }}>
+                              {userDir === "sent" ? "Sent" : "Received"} {exp.userTxAmount}
+                              {exp.userTxTimestamp && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{new Date(exp.userTxTimestamp).toLocaleDateString()}</span>}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-0">
                         <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
@@ -1214,10 +1242,10 @@ export default function Home() {
                           </div>
                         </div>
                         <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 40 }}>
-                          <div style={{ flex: 1, height: 2, background: "linear-gradient(90deg, var(--edge-strong), rgba(255,170,0,0.4))", position: "relative" }}>
+                          <div style={{ flex: 1, height: 2, background: gradientDir1, position: "relative" }}>
                             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent, rgba(255,170,0,0.3))", animation: "hopPulse 2s ease-in-out infinite", animationDelay: `${i * 0.3}s` }} />
                           </div>
-                          <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(255,170,0,0.5)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
+                          <svg style={{ flexShrink: 0, width: 10, height: 10, color: arrowColor1, marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
                         </div>
                         <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <a href={`${EXPLORER_URLS[result.chain].addr}${exp.intermediaryAddress}`} target="_blank" rel="noopener noreferrer"
@@ -1253,7 +1281,8 @@ export default function Home() {
                         intermediary {exp.direction === "sent" ? "deposits to" : "withdraws from"} {exp.exchange}
                       </p>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {result.interactions.filter(i => !i.indirect).length > 0 && (

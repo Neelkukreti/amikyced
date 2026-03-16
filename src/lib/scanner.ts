@@ -21,6 +21,11 @@ export interface IndirectExposure {
   label: string;
   direction: "sent" | "received"; // intermediary's direction with the CEX
   confidence: "high" | "medium"; // high = multiple CEX txs, medium = single
+  // Transaction details between the scanned wallet and the intermediary
+  userTxHash?: string;
+  userTxAmount?: string;
+  userTxDirection?: "sent" | "received"; // user's direction with the intermediary
+  userTxTimestamp?: string;
 }
 
 export type ReputationGrade = "A+" | "A" | "B+" | "B" | "C" | "D" | "F";
@@ -207,8 +212,16 @@ async function fetchEvmTxList(address: string): Promise<TxRow[]> {
 //  Checks if counterparties themselves interact with known CEX wallets
 // ═══════════════════════════════════════════════════════════════
 
+interface CounterpartyInfo {
+  address: string;
+  txHash: string;
+  amount: string;
+  direction: "sent" | "received"; // user's direction with this counterparty
+  timestamp?: string;
+}
+
 async function checkIndirectExposureEvm(
-  counterparties: string[],
+  counterparties: CounterpartyInfo[],
   chain: Chain
 ): Promise<IndirectExposure[]> {
   if (chain !== "ethereum") return []; // Only EVM supported for now
@@ -217,13 +230,13 @@ async function checkIndirectExposureEvm(
   const checked = new Set<string>();
 
   // Limit to top 10 unique counterparties to avoid rate limits
-  const toCheck = counterparties.filter((addr) => {
-    if (checked.has(addr)) return false;
+  const toCheck = counterparties.filter((cp) => {
+    if (checked.has(cp.address)) return false;
     // Skip if it's already a known CEX address
-    if (lookupCex(addr, "ethereum")) return false;
+    if (lookupCex(cp.address, "ethereum")) return false;
     // Skip if it's any known labeled entity (protocol routers, bridges, etc. generate false 2-hop hits)
-    if (lookupAny(addr, "ethereum")) return false;
-    checked.add(addr);
+    if (lookupAny(cp.address, "ethereum")) return false;
+    checked.add(cp.address);
     return true;
   }).slice(0, 10);
 
@@ -231,9 +244,9 @@ async function checkIndirectExposureEvm(
   for (let i = 0; i < toCheck.length; i += 3) {
     const batch = toCheck.slice(i, i + 3);
     const results = await Promise.allSettled(
-      batch.map(async (counterparty) => {
+      batch.map(async (cpInfo) => {
         try {
-          const txList = await fetchEvmTxList(counterparty);
+          const txList = await fetchEvmTxList(cpInfo.address);
           let cexHits = 0;
           let lastExchange = "";
           let lastLabel = "";
@@ -242,7 +255,7 @@ async function checkIndirectExposureEvm(
           for (const tx of txList.slice(0, 100)) {
             const from = tx.from?.toLowerCase();
             const to = tx.to?.toLowerCase();
-            const cp = counterparty.toLowerCase();
+            const cp = cpInfo.address.toLowerCase();
 
             if (from === cp && to) {
               const match = lookupCex(to, "ethereum");
@@ -267,11 +280,15 @@ async function checkIndirectExposureEvm(
           // Require at least 2 CEX hits to avoid false positives from single interactions
           if (cexHits >= 2) {
             return {
-              intermediaryAddress: counterparty,
+              intermediaryAddress: cpInfo.address,
               exchange: lastExchange,
               label: lastLabel,
               direction: lastDirection,
               confidence: cexHits >= 5 ? "high" : "medium",
+              userTxHash: cpInfo.txHash,
+              userTxAmount: cpInfo.amount,
+              userTxDirection: cpInfo.direction,
+              userTxTimestamp: cpInfo.timestamp,
             } as IndirectExposure;
           }
           return null;
@@ -303,7 +320,7 @@ async function checkIndirectExposureEvm(
 async function scanEvm(address: string): Promise<ScanResult> {
   const start = Date.now();
   const interactions: CexInteraction[] = [];
-  const counterparties: string[] = [];
+  const counterparties: CounterpartyInfo[] = [];
 
   try {
     const txList = await fetchEvmTxList(address);
@@ -360,7 +377,10 @@ async function scanEvm(address: string): Promise<ScanResult> {
         } else if (userSub) {
           addInteraction(userSub, "sent", to, true);
         } else {
-          counterparties.push(to);
+          counterparties.push({
+            address: to, txHash: tx.hash, amount: formatAmount(tx), direction: "sent",
+            timestamp: tx.timeStamp ? new Date(Number(tx.timeStamp) * 1000).toISOString() : undefined,
+          });
         }
       }
 
@@ -379,7 +399,10 @@ async function scanEvm(address: string): Promise<ScanResult> {
         } else if (userSub) {
           addInteraction(userSub, "received", from, true);
         } else {
-          counterparties.push(from);
+          counterparties.push({
+            address: from, txHash: tx.hash, amount: formatAmount(tx), direction: "received",
+            timestamp: tx.timeStamp ? new Date(Number(tx.timeStamp) * 1000).toISOString() : undefined,
+          });
         }
       }
     }
