@@ -55,6 +55,17 @@ type TxRow = { from: string; to: string; hash: string; timeStamp: string; value:
 const DUST_THRESHOLD_ETH = 0.001;  // ~$3 — skip dust native transfers
 const DUST_THRESHOLD_TOKEN = 1.0;  // Skip sub-$1 token transfers (phishing/dust)
 
+// Detect scam/phishing tokens by their name — legit tokens don't contain URLs or promo text
+const PHISHING_TOKEN_RE = /\b(visit|claim|swap|access|redeem|activate|airdrop)\b|https?:\/\/|\.(xyz|com|io|gg|app|net|org|co|finance|exchange)\b|www\./i;
+const MAX_LEGIT_SYMBOL_LENGTH = 20; // Real token symbols are short (BTC, USDT, WETH, etc.)
+
+function isPhishingTokenName(symbol: string | undefined): boolean {
+  if (!symbol) return false;
+  // Legit symbols don't contain spaces or URLs
+  if (symbol.length > MAX_LEGIT_SYMBOL_LENGTH && symbol.includes(" ")) return true;
+  return PHISHING_TOKEN_RE.test(symbol);
+}
+
 function isDustOrPhishing(tx: TxRow, walletAddress: string): boolean {
   // Skip failed transactions
   if (tx.isError === "1") return true;
@@ -68,6 +79,9 @@ function isDustOrPhishing(tx: TxRow, walletAddress: string): boolean {
 
   // Token transfers
   if (tx.tokenSymbol && tx.tokenDecimal) {
+    // Scam tokens embed URLs/promo text in the token name (e.g. "Visit getrez.xyz to swap to USDT")
+    if (isPhishingTokenName(tx.tokenSymbol)) return true;
+
     const decimals = Number(tx.tokenDecimal);
     const val = Number(tx.value) / Math.pow(10, decimals);
 

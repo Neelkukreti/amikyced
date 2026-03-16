@@ -1014,15 +1014,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── Auth-required banner (wallet connect disabled) ── */}
-            {result.authRequired && (
-              <div className="animate-fade-in-up" style={{ border: "1px solid rgba(255,170,0,0.25)", borderRadius: 12, background: "rgba(255,170,0,0.04)", padding: 18 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "var(--caution)" }}>2-hop indirect exposure hidden</p>
-                <p className="mt-1" style={{ fontSize: 13, color: "var(--secondary)", fontFamily: "var(--font-mono)" }}>
-                  Full 2-hop analysis is available for authenticated users. Coming soon.
-                </p>
-              </div>
-            )}
+            {/* Auth-required banner removed — 2-hop is now free for everyone */}
 
             {/* ── Sanctions warning ── */}
             {result.interactions.some((i) => i.entityType === "sanctions") && (

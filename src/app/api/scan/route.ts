@@ -3,7 +3,7 @@ import { scanAddress, detectChain, isChainSupported } from "@/lib/scanner";
 import type { ScanResult } from "@/lib/scanner";
 import type { Chain } from "@/lib/cex-addresses";
 import { verifySessionCookie, SESSION_COOKIE_NAME } from "@/lib/auth";
-import { canScan, recordScan, canScanIp, canDeepScanIp, recordScanIp } from "@/lib/usage-store";
+import { canScan, recordScan, canScanIp, recordScanIp } from "@/lib/usage-store";
 
 // In-process scan cache: address+chain → result, TTL 10 min
 const g = globalThis as typeof globalThis & {
@@ -80,8 +80,8 @@ export async function POST(req: NextRequest) {
     const session = sessionCookie ? verifySessionCookie(sessionCookie) : null;
     const isAuthenticated = !!session;
 
-    // Determine if deep scan (2-hop) is allowed
-    let deep = requestDeep !== false; // default true
+    // 2-hop deep scan is always enabled for everyone
+    const deep = true;
 
     if (isAuthenticated && session) {
       const check = canScan(session.address, deep);
@@ -91,17 +91,6 @@ export async function POST(req: NextRequest) {
           { status: 429 }
         );
       }
-      // Also check IP-level deep limit
-      if (deep && !canDeepScanIp(ip)) {
-        deep = false;
-      }
-    } else {
-      // Anonymous: first scan gets full results, subsequent strip 2-hop
-      // Check both cookie AND IP-based tracking
-      const anonCount = Number(req.cookies.get("kycscan_anon")?.value || "0");
-      if (anonCount > 0 || !canDeepScanIp(ip)) {
-        deep = false;
-      }
     }
 
     // Run scan (with cache)
@@ -110,14 +99,7 @@ export async function POST(req: NextRequest) {
     const result: ScanResult = cached ? structuredClone(cached) : await scanAddress(trimmed, detectedChain);
     if (!cached) setCached(cacheKey, result);
 
-    // Strip 2-hop data if not a deep scan
-    if (!deep) {
-      result.indirectExposures = [];
-      result.interactions = result.interactions.filter((i) => !i.indirect);
-      // Recalculate totals
-      result.exchangesSeen = result.exchangesSeen.filter((e) => !e.includes("(indirect)"));
-      result.totalInteractions = result.interactions.length;
-    }
+    // 2-hop data is always included — no stripping needed
 
     // Track analytics (in-memory, survives within warm instance)
     const analytics = g.__scanAnalytics!;
@@ -138,7 +120,7 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({
       ...result,
       deep,
-      authRequired: !isAuthenticated && !deep,
+      authRequired: false,
     });
 
     // Increment anonymous scan counter
