@@ -49,28 +49,48 @@ export interface ScanResult {
 type TxRow = { from: string; to: string; hash: string; timeStamp: string; value: string; tokenSymbol?: string; tokenDecimal?: string; isError?: string; functionName?: string };
 
 // ═══════════════════════════════════════════════════════════════
-//  Dust / spam filter — skip irrelevant transactions
+//  Dust / spam / phishing filter — skip fake & irrelevant txs
 // ═══════════════════════════════════════════════════════════════
 
-const DUST_THRESHOLD_ETH = 0.0001; // ~$0.03 — skip dust transfers
-const DUST_THRESHOLD_TOKEN = 0.01; // Skip negligible token amounts
+const DUST_THRESHOLD_ETH = 0.001;  // ~$3 — skip dust native transfers
+const DUST_THRESHOLD_TOKEN = 1.0;  // Skip sub-$1 token transfers (phishing/dust)
 
-function isDustTransaction(tx: TxRow): boolean {
+function isDustOrPhishing(tx: TxRow, walletAddress: string): boolean {
   // Skip failed transactions
   if (tx.isError === "1") return true;
   // Skip contract creation (no "to" address)
   if (!tx.to) return true;
-  // Skip zero-value internal calls (contract interactions, not actual transfers)
-  if (tx.value === "0" && !tx.tokenSymbol) return true;
+  // Skip zero-value calls (contract interactions, not real transfers)
+  if (tx.value === "0") return true;
 
+  const addr = walletAddress.toLowerCase();
+  const isReceived = tx.to?.toLowerCase() === addr;
+
+  // Token transfers
   if (tx.tokenSymbol && tx.tokenDecimal) {
     const decimals = Number(tx.tokenDecimal);
     const val = Number(tx.value) / Math.pow(10, decimals);
-    return val < DUST_THRESHOLD_TOKEN;
+
+    // Zero or negligible token amount = phishing/address poisoning
+    if (val < DUST_THRESHOLD_TOKEN) return true;
+
+    // Address poisoning: unsolicited received token transfer via transferFrom
+    // Scammers call transferFrom(victim, lookalike, 0) to pollute tx history
+    if (isReceived && tx.functionName && tx.functionName.includes("transferFrom") && val < 10) return true;
+
+    return false;
   }
-  // Native ETH/BNB/MATIC dust
+
+  // Native ETH/BNB/MATIC
   const ethValue = Number(tx.value) / 1e18;
-  return ethValue < DUST_THRESHOLD_ETH;
+
+  // Unsolicited tiny native receives are likely dust attacks
+  if (isReceived && ethValue < DUST_THRESHOLD_ETH) return true;
+
+  // For sent txs, use a lower threshold (user intentionally sent)
+  if (!isReceived && ethValue < 0.0001) return true;
+
+  return false;
 }
 
 // EVM chains to scan (Etherscan V2 supports all via chainid param)
@@ -278,8 +298,8 @@ async function scanEvm(address: string): Promise<ScanResult> {
     const seenInteractions = new Set<string>();
 
     for (const tx of txList) {
-      // Skip dust/spam/failed transactions
-      if (isDustTransaction(tx)) continue;
+      // Skip dust/spam/phishing transactions
+      if (isDustOrPhishing(tx, address)) continue;
 
       const from = tx.from?.toLowerCase();
       const to = tx.to?.toLowerCase();
