@@ -448,7 +448,7 @@ export default function Home() {
             </h1>
 
             <p className="animate-fade-in-up stagger-1 mt-5" style={{ color: "var(--secondary)", maxWidth: 480, lineHeight: 1.7, fontSize: 16, position: "relative", zIndex: 1 }}>
-              Detect connections to KYC-linked exchanges, sanctioned entities, and known identities across EVM, Solana, Bitcoin &amp; TRON.
+              Detect connections to KYC-linked exchanges, sanctioned entities, and known identities across EVM chains.
             </p>
 
             {/* ── Search form ── */}
@@ -474,7 +474,7 @@ export default function Home() {
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && !loading && handleScan()}
-                        placeholder="0x... / bc1... / sol..."
+                        placeholder="0x..."
                         aria-label="Wallet address"
                         style={{
                           width: "100%",
@@ -512,9 +512,9 @@ export default function Home() {
                     >
                       <option value="auto">AUTO</option>
                       <option value="ethereum">ETH</option>
-                      <option value="solana">SOL</option>
-                      <option value="bitcoin">BTC</option>
-                      <option value="tron">TRX</option>
+                      <option value="solana" disabled>SOL (soon)</option>
+                      <option value="bitcoin" disabled>BTC (soon)</option>
+                      <option value="tron" disabled>TRX (soon)</option>
                     </select>
 
                     <button
@@ -827,9 +827,9 @@ export default function Home() {
                 >
                   <option value="auto">AUTO</option>
                   <option value="ethereum">ETH</option>
-                  <option value="solana">SOL</option>
-                  <option value="bitcoin">BTC</option>
-                  <option value="tron">TRX</option>
+                  <option value="solana" disabled>SOL (soon)</option>
+                  <option value="bitcoin" disabled>BTC (soon)</option>
+                  <option value="tron" disabled>TRX (soon)</option>
                 </select>
                 <button
                   onClick={handleScan}

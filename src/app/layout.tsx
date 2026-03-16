@@ -19,7 +19,7 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "KYCScan — CEX Exposure Scanner",
-  description: "Check if any wallet has interacted with centralized exchanges. Supports EVM, Solana, Bitcoin, and TRON.",
+  description: "Check if any wallet has interacted with centralized exchanges. Supports EVM chains (Ethereum, Arbitrum, BSC, Polygon, Optimism, Base).",
 };
 
 export default function RootLayout({

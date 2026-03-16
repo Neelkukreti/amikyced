@@ -729,6 +729,9 @@ function getErrorMessage(err: unknown): string {
 //  Chain detection + main entry point
 // ═══════════════════════════════════════════════════════════════
 
+// Disabled chains — incomplete data, re-enable when ready
+const DISABLED_CHAINS: Chain[] = ["solana", "bitcoin", "tron"];
+
 export function detectChain(address: string): Chain | null {
   // EVM: 0x + 40 hex chars
   if (/^0x[a-fA-F0-9]{40}$/.test(address)) return "ethereum";
@@ -745,6 +748,10 @@ export function detectChain(address: string): Chain | null {
   if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return "solana";
 
   return null;
+}
+
+export function isChainSupported(chain: Chain): boolean {
+  return !DISABLED_CHAINS.includes(chain);
 }
 
 export async function scanAddress(address: string, chain?: Chain): Promise<ScanResult> {
@@ -765,6 +772,25 @@ export async function scanAddress(address: string, chain?: Chain): Promise<ScanR
       scanDuration: 0,
       celebrityConnections: [],
       error: "Could not detect chain. Please select manually.",
+    };
+  }
+
+  if (!isChainSupported(detectedChain)) {
+    return {
+      address,
+      chain: detectedChain,
+      isKyced: false,
+      riskScore: 0,
+      riskLevel: "none",
+      reputationScore: 100,
+      reputationGrade: "A+",
+      interactions: [],
+      indirectExposures: [],
+      exchangesSeen: [],
+      totalInteractions: 0,
+      scanDuration: 0,
+      celebrityConnections: [],
+      error: `${detectedChain.charAt(0).toUpperCase() + detectedChain.slice(1)} scanning is temporarily disabled while we expand our address database. EVM chains are fully supported.`,
     };
   }
 

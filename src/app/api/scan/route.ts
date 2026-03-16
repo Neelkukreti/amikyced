@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { scanAddress, detectChain } from "@/lib/scanner";
+import { scanAddress, detectChain, isChainSupported } from "@/lib/scanner";
 import type { ScanResult } from "@/lib/scanner";
 import type { Chain } from "@/lib/cex-addresses";
 import { verifySessionCookie, SESSION_COOKIE_NAME } from "@/lib/auth";
@@ -45,7 +45,14 @@ export async function POST(req: NextRequest) {
 
     if (!detectedChain) {
       return NextResponse.json(
-        { error: "Could not detect blockchain. Supported: EVM (0x...), Solana, Bitcoin, TRON (T...)" },
+        { error: "Could not detect blockchain. Currently supported: EVM chains (0x...)" },
+        { status: 400 }
+      );
+    }
+
+    if (!isChainSupported(detectedChain)) {
+      return NextResponse.json(
+        { error: `${detectedChain.charAt(0).toUpperCase() + detectedChain.slice(1)} scanning is coming soon. Currently only EVM chains are supported.` },
         { status: 400 }
       );
     }
