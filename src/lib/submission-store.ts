@@ -137,3 +137,7 @@ export function lookupUserSubmission(address: string, chain: Chain): CexAddress 
 export function getSubmissionCount(): number {
   return g.__submissionMap!.size;
 }
+
+export function getAllSubmissions() {
+  return [...g.__submissionMap!.values()];
+}
