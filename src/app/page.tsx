@@ -184,9 +184,11 @@ export default function Home() {
   const [showStats, setShowStats] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+
   const [isIndia, setIsIndia] = useState(false);
   const [submitAddr, setSubmitAddr] = useState("");
   const [submitExchange, setSubmitExchange] = useState("");
+  const [submitOther, setSubmitOther] = useState("");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitMsg, setSubmitMsg] = useState("");
   const session = useSession();
@@ -197,7 +199,7 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {});
-    try { setIsIndia(Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Calcutta" || Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Kolkata"); } catch {}
+    try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; setIsIndia(tz === "Asia/Calcutta" || tz === "Asia/Kolkata"); } catch {}
   }, []);
 
   useEffect(() => {
@@ -1420,43 +1422,43 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── India CryptoITR cross-promo ── */}
+        {/* ── India Fedha Academy promo ── */}
         {isIndia && result && (
           <div className="mt-6 animate-fade-in-up" style={{
-            border: "1px solid rgba(255,170,0,0.2)",
+            border: "1px solid rgba(99,102,241,0.2)",
             borderRadius: 12,
-            background: "linear-gradient(135deg, rgba(255,170,0,0.06) 0%, rgba(255,100,0,0.03) 100%)",
+            background: "linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(139,92,246,0.03) 100%)",
             padding: "18px 22px",
           }}>
             <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
               <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: "var(--caution)", fontFamily: "var(--font-display)" }}>
-                  🇮🇳 Indian crypto investor?
+                <p style={{ fontSize: 15, fontWeight: 700, color: "rgb(129,140,248)", fontFamily: "var(--font-display)" }}>
+                  🎓 Learn Crypto for Free
                 </p>
                 <p className="mt-1" style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.6 }}>
-                  Calculate your crypto taxes and file ITR with <span style={{ fontWeight: 600, color: "var(--primary)" }}>CryptoITR</span> — our free tax tool built for Indian regulations.
+                  Master crypto trading, DeFi, and blockchain fundamentals with <span style={{ fontWeight: 600, color: "rgb(165,180,252)" }}>Fedha Academy</span> — free courses built for Indian investors.
                 </p>
               </div>
               <a
-                href="https://cryptoitr.com"
+                href="https://fedhaacademy.in"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
                   flexShrink: 0,
-                  border: "1px solid rgba(255,170,0,0.4)",
+                  border: "1px solid rgba(99,102,241,0.4)",
                   borderRadius: 8,
-                  background: "rgba(255,170,0,0.1)",
+                  background: "rgba(99,102,241,0.1)",
                   padding: "10px 20px",
                   fontFamily: "var(--font-display)",
                   fontWeight: 700,
                   fontSize: 14,
-                  color: "var(--caution)",
+                  color: "rgb(129,140,248)",
                   textDecoration: "none",
                   whiteSpace: "nowrap",
                   transition: "all 0.15s",
                 }}
               >
-                Visit CryptoITR →
+                Start Learning →
               </a>
             </div>
           </div>
@@ -1488,28 +1490,59 @@ export default function Home() {
                     color: "var(--primary)", outline: "none",
                   }}
                 />
-                <input
-                  type="text"
+                <select
                   value={submitExchange}
                   onChange={(e) => setSubmitExchange(e.target.value)}
-                  placeholder="Exchange name"
                   aria-label="Exchange name"
                   style={{
                     flex: 1, background: "var(--surface-2)", border: "1px solid var(--edge)",
                     borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-display)", fontSize: 13,
-                    color: "var(--primary)", outline: "none",
+                    color: submitExchange ? "var(--primary)" : "var(--tertiary)", outline: "none",
+                    appearance: "none", WebkitAppearance: "none",
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
                   }}
-                />
+                >
+                  <option value="" disabled>Select exchange</option>
+                  {[
+                    "Binance", "Coinbase", "Kraken", "OKX", "Bybit", "KuCoin", "Gate.io",
+                    "Gemini", "Bitfinex", "HTX (Huobi)", "Crypto.com", "Bitstamp", "Bitget",
+                    "MEXC", "BingX", "Deribit", "Phemex", "Pionex", "BitMart", "LBank",
+                    "AscendEX", "Poloniex", "ProBit", "Toobit", "WhiteBIT", "DigiFinex",
+                    "CoinEx", "Hotbit", "Bitrue", "Bitvavo", "Luno",
+                    "WazirX", "CoinDCX", "ZebPay", "Coinhako",
+                    "Upbit", "Bithumb", "Coinone", "Korbit", "Paribu",
+                    "BTCTurk", "Independent Reserve", "BitFlyer",
+                    "Robinhood", "Blockchain.com", "BlockFi", "Voyager",
+                  ].map((ex) => <option key={ex} value={ex}>{ex}</option>)}
+                  <option value="__other__">Other...</option>
+                </select>
+                {submitExchange === "__other__" && (
+                  <input
+                    type="text"
+                    value={submitOther}
+                    onChange={(e) => setSubmitOther(e.target.value)}
+                    placeholder="Exchange name"
+                    aria-label="Other exchange name"
+                    maxLength={50}
+                    style={{
+                      flex: 1, background: "var(--surface-2)", border: "1px solid var(--edge)",
+                      borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-display)", fontSize: 13,
+                      color: "var(--primary)", outline: "none",
+                    }}
+                  />
+                )}
                 <button
-                  disabled={!submitAddr.trim() || !submitExchange.trim() || submitStatus === "loading"}
+                  disabled={!submitAddr.trim() || (!submitExchange || (submitExchange === "__other__" && !submitOther.trim())) || submitStatus === "loading"}
                   onClick={async () => {
+                    const exchangeName = submitExchange === "__other__" ? submitOther.trim() : submitExchange;
                     setSubmitStatus("loading");
                     setSubmitMsg("");
                     try {
                       const res = await fetch("/api/submit", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ address: submitAddr.trim(), exchange: submitExchange.trim() }),
+                        body: JSON.stringify({ address: submitAddr.trim(), exchange: exchangeName }),
                       });
                       const data = await res.json();
                       if (!res.ok) {
@@ -1520,6 +1553,7 @@ export default function Home() {
                         setSubmitMsg("Submitted! This address will now appear in scan results.");
                         setSubmitAddr("");
                         setSubmitExchange("");
+                        setSubmitOther("");
                         setTimeout(() => setSubmitStatus("idle"), 5000);
                       }
                     } catch {
@@ -1528,12 +1562,12 @@ export default function Home() {
                     }
                   }}
                   style={{
-                    background: submitStatus === "loading" ? "var(--surface-2)" : "var(--surface-2)",
+                    background: "var(--surface-2)",
                     border: "1px solid var(--edge-strong)",
                     borderRadius: 8, padding: "10px 18px",
                     fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13,
-                    color: submitAddr.trim() && submitExchange.trim() ? "var(--accent)" : "var(--tertiary)",
-                    cursor: submitAddr.trim() && submitExchange.trim() ? "pointer" : "not-allowed",
+                    color: submitAddr.trim() && (submitExchange && (submitExchange !== "__other__" || submitOther.trim())) ? "var(--accent)" : "var(--tertiary)",
+                    cursor: submitAddr.trim() && (submitExchange && (submitExchange !== "__other__" || submitOther.trim())) ? "pointer" : "not-allowed",
                     whiteSpace: "nowrap", transition: "all 0.15s",
                   }}
                 >
