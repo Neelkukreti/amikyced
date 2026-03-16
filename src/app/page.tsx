@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useSession } from "@/hooks/useSession";
 
-const WalletButton = dynamic(() => import("@/components/WalletButton"), { ssr: false });
-const UpgradeModal = dynamic(() => import("@/components/UpgradeModal"), { ssr: false });
+// const WalletButton = dynamic(() => import("@/components/WalletButton"), { ssr: false }); // Wallet connect disabled
+// const UpgradeModal = dynamic(() => import("@/components/UpgradeModal"), { ssr: false }); // Monetization hidden
 
 type Chain = "ethereum" | "solana" | "bitcoin" | "tron";
 
@@ -183,6 +183,8 @@ export default function Home() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [isIndia, setIsIndia] = useState(false);
   const session = useSession();
   // session.refresh is already stable (useCallback with no deps in useSession)
   // Wrapping in another useCallback with `session` as dep would recreate it every render,
@@ -191,6 +193,7 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {});
+    try { setIsIndia(Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Calcutta" || Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Kolkata"); } catch {}
   }, []);
 
   useEffect(() => {
@@ -200,6 +203,17 @@ export default function Home() {
     }
     setShowResult(false);
   }, [result]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) { setError(null); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   async function handleScan() {
     if (!address.trim()) return;
@@ -229,7 +243,10 @@ export default function Home() {
       const data = await res.json();
       phaseTimers.forEach(clearTimeout);
       if (!res.ok) {
-        if (data.limitReached) {
+        if (data.cooldownRemaining) {
+          setCooldown(data.cooldownRemaining);
+          setError(`Wait ${data.cooldownRemaining}s before scanning again`);
+        } else if (data.limitReached) {
           setError(`Daily limit reached. ${data.error}`);
         } else {
           setError(data.error || "Scan failed");
@@ -297,40 +314,11 @@ export default function Home() {
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--secondary)" }}>
                     {limit === Infinity ? `${used}/∞` : `${used}/${limit}`}
                   </span>
-                  {session.usage.plan === "free" ? (
-                    <button
-                      onClick={() => setShowUpgrade(true)}
-                      style={{
-                        border: "1px solid var(--accent)",
-                        borderRadius: 7,
-                        background: "rgba(0,200,255,0.08)",
-                        padding: "6px 14px",
-                        fontFamily: "var(--font-display)",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--accent)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Upgrade
-                    </button>
-                  ) : (
-                    <span style={{
-                      border: "1px solid rgba(0,232,150,0.3)",
-                      borderRadius: 7,
-                      background: "rgba(0,232,150,0.06)",
-                      padding: "5px 10px",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "var(--safe)",
-                      letterSpacing: "0.1em",
-                    }}>PRO</span>
-                  )}
+                  {/* Monetization UI hidden — re-enable when payments are live */}
                 </div>
               );
             })()}
-            <WalletButton onAuthSuccess={onAuthSuccess} />
+            {/* WalletButton disabled — re-enable when auth is needed */}
           </div>
         </div>
       </nav>
@@ -531,24 +519,24 @@ export default function Home() {
 
                     <button
                       onClick={handleScan}
-                      disabled={!address.trim()}
+                      disabled={!address.trim() || cooldown > 0}
                       style={{
-                        background: address.trim() ? "var(--accent)" : "var(--surface-2)",
-                        border: "1px solid " + (address.trim() ? "var(--accent)" : "var(--edge)"),
+                        background: address.trim() && cooldown <= 0 ? "var(--accent)" : "var(--surface-2)",
+                        border: "1px solid " + (address.trim() && cooldown <= 0 ? "var(--accent)" : "var(--edge)"),
                         borderRadius: 8,
                         padding: "13px 28px",
                         fontFamily: "var(--font-display)",
                         fontWeight: 600,
                         fontSize: 14,
                         letterSpacing: "0.03em",
-                        color: address.trim() ? "var(--ink)" : "var(--tertiary)",
-                        cursor: address.trim() ? "pointer" : "not-allowed",
+                        color: address.trim() && cooldown <= 0 ? "var(--ink)" : "var(--tertiary)",
+                        cursor: address.trim() && cooldown <= 0 ? "pointer" : "not-allowed",
                         transition: "all 0.15s",
                         whiteSpace: "nowrap",
                       }}
                       aria-label="Scan wallet exposure"
                     >
-                      Scan Wallet
+                      {cooldown > 0 ? `${cooldown}s` : "Scan Wallet"}
                     </button>
                   </div>
                 </div>
@@ -820,7 +808,7 @@ export default function Home() {
                       width: "100%", background: "var(--surface-1)",
                       border: "1px solid var(--edge)", borderRadius: 7,
                       padding: "11px 16px 11px 40px",
-                      fontFamily: "var(--font-mono)", fontSize: 12,
+                      fontFamily: "var(--font-mono)", fontSize: 14,
                       color: "var(--primary)", outline: "none",
                     }}
                   />
@@ -832,7 +820,7 @@ export default function Home() {
                   style={{
                     background: "var(--surface-1)", border: "1px solid var(--edge)",
                     borderRadius: 7, padding: "11px 14px",
-                    fontFamily: "var(--font-mono)", fontSize: 11,
+                    fontFamily: "var(--font-mono)", fontSize: 13,
                     color: "var(--secondary)", cursor: "pointer", outline: "none",
                     letterSpacing: "0.06em",
                   }}
@@ -845,17 +833,20 @@ export default function Home() {
                 </select>
                 <button
                   onClick={handleScan}
-                  disabled={!address.trim()}
+                  disabled={!address.trim() || cooldown > 0}
                   style={{
-                    background: "var(--accent)", border: "1px solid var(--accent)",
+                    background: cooldown > 0 ? "var(--surface-2)" : "var(--accent)",
+                    border: "1px solid " + (cooldown > 0 ? "var(--edge)" : "var(--accent)"),
                     borderRadius: 7, padding: "11px 22px",
-                    fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 12,
-                    letterSpacing: "0.1em", color: "var(--ink)", cursor: "pointer",
-                    opacity: address.trim() ? 1 : 0.4,
+                    fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14,
+                    letterSpacing: "0.08em",
+                    color: cooldown > 0 ? "var(--caution)" : "var(--ink)",
+                    cursor: cooldown > 0 ? "not-allowed" : "pointer",
+                    opacity: address.trim() && cooldown <= 0 ? 1 : 0.4,
                   }}
                   aria-label="Scan wallet"
                 >
-                  RESCAN
+                  {cooldown > 0 ? `${cooldown}s` : "RESCAN"}
                 </button>
               </div>
             </div>
@@ -865,21 +856,21 @@ export default function Home() {
         {/* Usage bar */}
         {session.authenticated && session.usage && (
           <div className="mt-3 flex items-center justify-end gap-3">
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--secondary)", display: "flex", alignItems: "center", gap: 5 }}>
               {session.usage.deepScansLimit - session.usage.deepScansUsed}/{session.usage.deepScansLimit} deep scans
               <span
                 title="Deep scan = 2-hop analysis. Checks not just your wallet's direct interactions, but also the wallets you transacted with — catching indirect exposure to exchanges, mixers, or flagged entities."
                 style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  width: 14, height: 14, borderRadius: "50%",
+                  width: 16, height: 16, borderRadius: "50%",
                   border: "1px solid var(--edge)", color: "var(--tertiary)",
-                  fontSize: 9, fontWeight: 700, cursor: "help", flexShrink: 0,
+                  fontSize: 11, fontWeight: 700, cursor: "help", flexShrink: 0,
                   fontFamily: "var(--font-display)",
                 }}
               >?</span>
             </span>
             <span style={{ color: "var(--tertiary)" }}>·</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--secondary)" }}>
               {session.usage.totalScansLimit - session.usage.totalScansToday}/{session.usage.totalScansLimit} total
             </span>
           </div>
@@ -888,35 +879,28 @@ export default function Home() {
         {/* Error */}
         {error && (
           <div className="mt-6 animate-fade-in-up" style={{
-            border: "1px solid rgba(255,61,61,0.25)", borderRadius: 8,
-            background: "rgba(255,61,61,0.05)", padding: "14px 18px",
+            border: cooldown > 0 ? "1px solid rgba(255,170,0,0.25)" : "1px solid rgba(255,61,61,0.25)",
+            borderRadius: 8,
+            background: cooldown > 0 ? "rgba(255,170,0,0.05)" : "rgba(255,61,61,0.05)",
+            padding: "14px 18px",
             fontFamily: "var(--font-mono)", fontSize: 13,
-            color: "var(--threat)",
+            color: cooldown > 0 ? "var(--caution)" : "var(--threat)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontWeight: 700, letterSpacing: "0.1em", fontSize: 10 }}>ERR</span>
-              <span>{error}</span>
+              {cooldown > 0 ? (
+                <>
+                  <span style={{ fontWeight: 700, letterSpacing: "0.1em", fontSize: 12 }}>COOLDOWN</span>
+                  <span>Wait {cooldown}s before scanning again</span>
+                  <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: 18, fontFamily: "var(--font-display)", color: "var(--caution)" }}>{cooldown}s</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontWeight: 700, letterSpacing: "0.1em", fontSize: 12 }}>ERR</span>
+                  <span>{error}</span>
+                </>
+              )}
             </div>
-            {error.includes("limitReached") || error.toLowerCase().includes("limit reached") ? (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,61,61,0.15)" }}>
-                <button
-                  onClick={() => setShowUpgrade(true)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--accent)",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    textUnderlineOffset: 3,
-                  }}
-                >
-                  Upgrade to Pro for unlimited scans →
-                </button>
-              </div>
-            ) : null}
+            {/* Upgrade CTA hidden — re-enable when payments are live */}
           </div>
         )}
 
@@ -929,9 +913,9 @@ export default function Home() {
             {/* ── Intelligence Assessment header ── */}
             <div className="flex items-center gap-3 py-1">
               <div style={{ height: 1, width: 24, background: "var(--accent)", opacity: 0.5 }} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--accent)" }}>Intelligence Assessment</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "var(--accent)" }}>Intelligence Assessment</span>
               <div style={{ flex: 1, height: 1, background: "var(--edge)" }} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--secondary)" }}>{new Date().toISOString().split("T")[0]}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--secondary)" }}>{new Date().toISOString().split("T")[0]}</span>
             </div>
 
             {/* ── Hero result card ── */}
@@ -956,11 +940,11 @@ export default function Home() {
 
                   {/* Left: verdict */}
                   <div className="animate-fade-in-up">
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "var(--secondary)" }}>KYC Exposure Status</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "var(--secondary)" }}>KYC Exposure Status</span>
                     <div className={`mt-3 score-reveal ${risk!.color}`} style={{ fontSize: "clamp(3rem,8vw,5rem)", fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1 }}>
                       {result.isKyced ? "EXPOSED" : "CLEAN"}
                     </div>
-                    <p className="mt-2" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)" }}>
+                    <p className="mt-2" style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--secondary)" }}>
                       {result.address.slice(0, 10)}···{result.address.slice(-8)}
                     </p>
                   </div>
@@ -968,7 +952,7 @@ export default function Home() {
                   {/* Right: scores */}
                   <div className="animate-fade-in-up stagger-1 flex gap-8 shrink-0">
                     <div>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "var(--secondary)" }}>Threat Score</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "var(--secondary)" }}>Threat Score</span>
                       <div className={`mt-2 score-reveal tabular-nums ${risk!.color}`} style={{ fontSize: "clamp(2.5rem,6vw,4rem)", fontWeight: 700, lineHeight: 1 }}>
                         {result.riskScore}
                       </div>
@@ -979,7 +963,7 @@ export default function Home() {
                       }}>{result.riskLevel.toUpperCase()}</span>
                     </div>
                     <div>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "var(--secondary)" }}>Reputation</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "var(--secondary)" }}>Reputation</span>
                       <div className={`mt-2 score-reveal ${GRADE_CONFIG[result.reputationGrade]?.color || "text-zinc-400"}`} style={{ fontSize: "clamp(2.5rem,6vw,4rem)", fontWeight: 700, lineHeight: 1, animationDelay: "0.25s" }}>
                         {result.reputationGrade}
                       </div>
@@ -1001,15 +985,15 @@ export default function Home() {
 
                 {/* Scores explainer */}
                 <details className="mt-5 group">
-                  <summary className="cursor-pointer flex items-center gap-1.5 transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)" }}>
-                    <svg className="h-3 w-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  <summary className="cursor-pointer flex items-center gap-1.5 transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--secondary)" }}>
+                    <svg className="h-3.5 w-3.5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     What do these scores mean?
                   </summary>
                   <div className="mt-3 animate-fade-in" style={{ border: "1px solid var(--edge)", borderRadius: 8, background: "var(--surface-1)", padding: "14px 16px" }}>
-                    <p style={{ fontSize: 12, color: "var(--secondary)", lineHeight: 1.6, marginBottom: 8 }}>
+                    <p style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.6, marginBottom: 8 }}>
                       <span style={{ fontWeight: 600, color: "var(--primary)" }}>Threat Score (0–100)</span> — Measures KYC-linked or risky activity. 0 = no detected exchange interactions. Higher = more exposure to exchanges, sanctioned entities, or hacked protocols.
                     </p>
-                    <p style={{ fontSize: 12, color: "var(--secondary)", lineHeight: 1.6, marginBottom: 10 }}>
+                    <p style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.6, marginBottom: 10 }}>
                       <span style={{ fontWeight: 600, color: "var(--primary)" }}>Reputation Grade (A+ to F)</span> — Overall wallet health. A+ = clean. Lower grades = connections to flagged addresses.
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -1024,18 +1008,13 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── Auth-required banner ── */}
+            {/* ── Auth-required banner (wallet connect disabled) ── */}
             {result.authRequired && (
               <div className="animate-fade-in-up" style={{ border: "1px solid rgba(255,170,0,0.25)", borderRadius: 12, background: "rgba(255,170,0,0.04)", padding: 18 }}>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--caution)" }}>2-hop indirect exposure hidden</p>
-                    <p className="mt-1" style={{ fontSize: 13, color: "var(--secondary)", fontFamily: "var(--font-mono)" }}>
-                      Connect wallet to unlock full 2-hop analysis · 3 deep scans per day
-                    </p>
-                  </div>
-                  <WalletButton onAuthSuccess={onAuthSuccess} />
-                </div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "var(--caution)" }}>2-hop indirect exposure hidden</p>
+                <p className="mt-1" style={{ fontSize: 13, color: "var(--secondary)", fontFamily: "var(--font-mono)" }}>
+                  Full 2-hop analysis is available for authenticated users. Coming soon.
+                </p>
               </div>
             )}
 
@@ -1096,7 +1075,7 @@ export default function Home() {
                               border: `1px solid ${isDirect ? "rgba(167,139,250,0.3)" : "rgba(167,139,250,0.15)"}`,
                               borderRadius: 6, padding: "5px 10px",
                               background: isDirect ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.05)",
-                              fontSize: 12, fontWeight: 600,
+                              fontSize: 14, fontWeight: 600,
                               color: isDirect ? "#c4b5fd" : "rgba(196,181,253,0.7)",
                             }}>
                               <ExchangeLogo name={name} size={13} />
@@ -1128,7 +1107,7 @@ export default function Home() {
             {result.exchangesSeen.length > 0 && (
               <div className="animate-fade-in-up stagger-3" style={{ border: "1px solid var(--edge)", borderRadius: 12, background: "var(--surface-0)", padding: "20px 24px" }}>
                 <SectionTitle>Entities Detected</SectionTitle>
-                <p className="mt-2 mb-4" style={{ fontSize: 12, color: "var(--secondary)", lineHeight: 1.5 }}>
+                <p className="mt-2 mb-4" style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.5 }}>
                   Known wallets your address interacted with.{" "}
                   <span style={{ color: "var(--threat)" }}>↑</span> = you sent,{" "}
                   <span style={{ color: "var(--safe)" }}>↓</span> = you received.
@@ -1171,13 +1150,13 @@ export default function Home() {
                             }}>{etConfig.label}</span>
                           )}
                         </p>
-                        <p className="mt-1" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--secondary)" }}>
+                        <p className="mt-1" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--secondary)" }}>
                           {count} tx{count !== 1 ? "s" : ""}
                           {sent > 0 && <span style={{ color: "var(--threat)", marginLeft: 6 }}>↑{sent}</span>}
                           {received > 0 && <span style={{ color: "var(--safe)", marginLeft: 4 }}>↓{received}</span>}
                         </p>
                         {topAssets.length > 0 && (
-                          <p className="mt-1" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--primary)" }}>
+                          <p className="mt-1" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--primary)" }}>
                             {topAssets.map(([asset, total], i) => (
                               <span key={asset}>
                                 {i > 0 && <span style={{ color: "var(--tertiary)" }}> · </span>}
@@ -1198,27 +1177,27 @@ export default function Home() {
             {result.indirectExposures && result.indirectExposures.length > 0 && (
               <div className="animate-fade-in-up stagger-4" style={{ border: "1px solid rgba(255,170,0,0.2)", borderRadius: 12, background: "rgba(255,170,0,0.03)", padding: "20px 24px" }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: 4, background: "rgba(255,170,0,0.15)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--caution)" }}>2</span>
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 4, background: "rgba(255,170,0,0.15)", fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--caution)" }}>2</span>
                   <SectionTitle className="text-amber-400">Indirect Exposure (2-hop)</SectionTitle>
                 </div>
 
                 <details className="mb-5 group" open>
-                  <summary className="cursor-pointer flex items-center gap-1.5 transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--caution)" }}>
-                    <svg className="h-3 w-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  <summary className="cursor-pointer flex items-center gap-1.5 transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--caution)" }}>
+                    <svg className="h-3.5 w-3.5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     What does 2-hop indirect exposure mean?
                   </summary>
                   <div className="mt-3 animate-fade-in" style={{ border: "1px solid rgba(255,170,0,0.12)", borderRadius: 8, background: "rgba(255,170,0,0.04)", padding: "14px 16px" }}>
-                    <p style={{ fontSize: 12, color: "var(--secondary)", lineHeight: 1.6, marginBottom: 8 }}>
+                    <p style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.6, marginBottom: 8 }}>
                       Your wallet didn&apos;t directly interact with an exchange — but someone you transacted with did. This is <span style={{ color: "var(--caution)", fontWeight: 600 }}>&quot;2-hop&quot;</span>: 2 steps to reach the exchange.
                     </p>
-                    <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 8 }}>
+                    <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 13, fontFamily: "var(--font-mono)", marginBottom: 8 }}>
                       <span style={{ border: "1px solid var(--edge-strong)", borderRadius: 5, padding: "4px 8px", color: "var(--primary)", background: "var(--surface-1)" }}>Your Wallet</span>
                       <span style={{ color: "var(--caution)" }}>→ hop 1 →</span>
                       <span style={{ border: "1px solid rgba(255,170,0,0.2)", borderRadius: 5, padding: "4px 8px", color: "var(--caution)", background: "rgba(255,170,0,0.05)" }}>Middleman</span>
                       <span style={{ color: "var(--threat)" }}>→ hop 2 →</span>
                       <span style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 5, padding: "4px 8px", color: "var(--threat)", background: "rgba(255,61,61,0.05)" }}>Exchange</span>
                     </div>
-                    <p style={{ fontSize: 11, color: "var(--secondary)" }}>
+                    <p style={{ fontSize: 13, color: "var(--secondary)" }}>
                       <span style={{ color: "var(--caution)", fontWeight: 600 }}>Confidence:</span> &quot;High&quot; = middleman has 5+ exchange txs. &quot;Medium&quot; = 2–4 txs.
                     </p>
                   </div>
@@ -1231,7 +1210,7 @@ export default function Home() {
                         <div style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
                             <div className="intel-label" style={{ color: "var(--secondary)", marginBottom: 2 }}>You</div>
-                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--primary)" }}>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--primary)" }}>
                               {result.address.slice(0, 6)}···{result.address.slice(-4)}
                             </div>
                           </div>
@@ -1248,7 +1227,7 @@ export default function Home() {
                             aria-label={`View intermediary ${exp.intermediaryAddress.slice(0, 8)}`}
                           >
                             <div className="intel-label" style={{ color: "rgba(255,170,0,0.7)", marginBottom: 2 }}>Hop 1</div>
-                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--caution)" }}>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--caution)" }}>
                               {exp.intermediaryAddress.slice(0, 6)}···{exp.intermediaryAddress.slice(-4)}
                             </div>
                           </a>
@@ -1262,7 +1241,7 @@ export default function Home() {
                         <div style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid rgba(255,61,61,0.25)", borderRadius: 8, background: "rgba(255,61,61,0.05)", padding: "8px 10px", textAlign: "center" }}>
                             <div className="intel-label" style={{ color: "rgba(255,61,61,0.7)", marginBottom: 2 }}>{exp.exchange}</div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--threat)" }}>{exp.label}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{exp.label}</div>
                             <span className="intel-label" style={{
                               display: "inline-block", marginTop: 4,
                               background: exp.confidence === "high" ? "rgba(255,61,61,0.12)" : "rgba(255,170,0,0.12)",
@@ -1295,7 +1274,7 @@ export default function Home() {
                         </div>
                         <div style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "6px 8px", textAlign: "center" }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
                             <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
                           </div>
                         </div>
@@ -1310,7 +1289,7 @@ export default function Home() {
             {(!result.indirectExposures || result.indirectExposures.length === 0) && result.interactions.length > 0 && (
               <div className="animate-fade-in-up stagger-4" style={{ border: "1px solid var(--edge)", borderRadius: 12, background: "var(--surface-0)", padding: "20px 24px" }}>
                 <SectionTitle>Exposure Map</SectionTitle>
-                <p className="mt-2 mb-5" style={{ fontSize: 12, color: "var(--secondary)", lineHeight: 1.5 }}>
+                <p className="mt-2 mb-5" style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.5 }}>
                   Direct transactions to known entities.{" "}
                   <span style={{ color: "var(--threat)" }}>Red arrows</span> = sent funds.{" "}
                   <span style={{ color: "var(--safe)" }}>Green arrows</span> = received funds.
@@ -1321,7 +1300,7 @@ export default function Home() {
                       <div style={{ width: 130, flexShrink: 0 }}>
                         <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
                           <div className="intel-label" style={{ color: "var(--secondary)", marginBottom: 1 }}>You</div>
-                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--primary)" }}>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--primary)" }}>
                             {result.address.slice(0, 6)}···{result.address.slice(-4)}
                           </div>
                         </div>
@@ -1336,14 +1315,14 @@ export default function Home() {
                           <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(0,232,150,0.55)", transform: "rotate(180deg)" }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
                         )}
                         {ix.amount && (
-                          <span style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: -18, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--secondary)", background: "var(--surface-0)", padding: "0 4px", whiteSpace: "nowrap" }}>
+                          <span style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: -18, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--secondary)", background: "var(--surface-0)", padding: "0 4px", whiteSpace: "nowrap" }}>
                             {ix.amount}
                           </span>
                         )}
                       </div>
                       <div style={{ width: 130, flexShrink: 0 }}>
                         <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "8px 10px", textAlign: "center" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
                           <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
                         </div>
                       </div>
@@ -1378,15 +1357,15 @@ export default function Home() {
                         <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
                           <span style={{
                             flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                            width: 28, height: 28, borderRadius: 5,
+                            width: 30, height: 30, borderRadius: 5,
                             background: badgeBg, color: badgeColor,
-                            fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 700,
+                            fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700,
                           }}>{badgeText}</span>
                           <ExchangeLogo name={ix.exchange} size={16} />
                           <div style={{ minWidth: 0 }}>
                             <p style={{ fontSize: 13, color: "var(--primary)" }}>
                               <span style={{ fontWeight: 600 }}>{ix.exchange}</span>
-                              <span style={{ marginLeft: 6, fontSize: 11, color: "var(--secondary)" }}>{ix.label}</span>
+                              <span style={{ marginLeft: 6, fontSize: 13, color: "var(--secondary)" }}>{ix.label}</span>
                               {etype !== "cex" && !ix.suspected && (
                                 <span className="intel-label" style={{
                                   marginLeft: 6, border: "1px solid currentColor", borderRadius: 3, padding: "1px 4px",
@@ -1398,7 +1377,7 @@ export default function Home() {
                                 <span className="intel-label" style={{ marginLeft: 6, background: "rgba(167,139,250,0.12)", color: "#c4b5fd", padding: "1px 5px", borderRadius: 3 }}>suspected</span>
                               )}
                             </p>
-                            <div className="flex items-center gap-2" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--secondary)", marginTop: 2 }}>
+                            <div className="flex items-center gap-2" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--secondary)", marginTop: 2 }}>
                               {ix.timestamp && <span>{new Date(ix.timestamp).toLocaleDateString()}</span>}
                               {ix.amount && (
                                 <span style={{ fontWeight: 600, color: ix.direction === "sent" ? "var(--threat)" : "var(--safe)" }}>
@@ -1426,11 +1405,53 @@ export default function Home() {
 
             {/* Scan warning */}
             {result.error && (
-              <div style={{ border: "1px solid rgba(255,170,0,0.15)", borderRadius: 8, background: "rgba(255,170,0,0.04)", padding: "10px 16px", fontFamily: "var(--font-mono)", fontSize: 12, color: "rgba(255,170,0,0.75)", display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 700, letterSpacing: "0.1em", fontSize: 10 }}>WARN</span>
+              <div style={{ border: "1px solid rgba(255,170,0,0.15)", borderRadius: 8, background: "rgba(255,170,0,0.04)", padding: "10px 16px", fontFamily: "var(--font-mono)", fontSize: 14, color: "rgba(255,170,0,0.75)", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 700, letterSpacing: "0.1em", fontSize: 12 }}>WARN</span>
                 {result.error}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── India CryptoITR cross-promo ── */}
+        {isIndia && result && (
+          <div className="mt-6 animate-fade-in-up" style={{
+            border: "1px solid rgba(255,170,0,0.2)",
+            borderRadius: 12,
+            background: "linear-gradient(135deg, rgba(255,170,0,0.06) 0%, rgba(255,100,0,0.03) 100%)",
+            padding: "18px 22px",
+          }}>
+            <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: "var(--caution)", fontFamily: "var(--font-display)" }}>
+                  🇮🇳 Indian crypto investor?
+                </p>
+                <p className="mt-1" style={{ fontSize: 14, color: "var(--secondary)", lineHeight: 1.6 }}>
+                  Calculate your crypto taxes and file ITR with <span style={{ fontWeight: 600, color: "var(--primary)" }}>CryptoITR</span> — our free tax tool built for Indian regulations.
+                </p>
+              </div>
+              <a
+                href="https://cryptoitr.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  flexShrink: 0,
+                  border: "1px solid rgba(255,170,0,0.4)",
+                  borderRadius: 8,
+                  background: "rgba(255,170,0,0.1)",
+                  padding: "10px 20px",
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "var(--caution)",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s",
+                }}
+              >
+                Visit CryptoITR →
+              </a>
+            </div>
           </div>
         )}
 
@@ -1438,12 +1459,14 @@ export default function Home() {
 
       </main>
 
+      {/* UpgradeModal hidden — re-enable when payments are live
       {showUpgrade && (
         <UpgradeModal
           onClose={() => setShowUpgrade(false)}
           onSuccess={() => { setShowUpgrade(false); session.refresh(); }}
         />
       )}
+      */}
     </div>
   );
 }
@@ -1463,7 +1486,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon?: str
 
 function SectionTitle({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <h3 className={className} style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: className ? undefined : "var(--secondary)" }}>
+    <h3 className={className} style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: className ? undefined : "var(--secondary)" }}>
       {children}
     </h3>
   );

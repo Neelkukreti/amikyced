@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, JetBrains_Mono } from "next/font/google";
-import Providers from "@/components/Providers";
+// import Providers from "@/components/Providers"; // Wallet connect disabled — saves ~3MB bundle
 import "./globals.css";
 
 const display = Chakra_Petch({
@@ -32,7 +32,7 @@ export default function RootLayout({
       <body
         className={`${display.variable} ${mono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );

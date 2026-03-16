@@ -12,6 +12,13 @@ const PLAN_LIMITS: Record<Plan, { scans: number; deepScans: number }> = {
   pro:   { scans: Infinity, deepScans: Infinity },
 };
 
+/** Minimum milliseconds between scans per plan */
+const PLAN_COOLDOWNS: Record<Plan, number> = {
+  free:  30_000,  // 30 seconds
+  basic: 10_000,  // 10 seconds
+  pro:   0,       // none
+};
+
 interface ScanEntry {
   address: string;
   chain: string;
@@ -28,12 +35,14 @@ interface UserUsage {
   scans: ScanEntry[];
   pro_expires_at?: string;
   used_payment_ids?: string[];
+  last_scan_at?: number;
 }
 
 interface IpUsage {
   total_scans_today: number;
   deep_scans_today: number;
   last_reset_date: string;
+  last_scan_at?: number;
 }
 
 interface Store {
@@ -93,11 +102,21 @@ export function isProActive(user: UserUsage): boolean {
   return getActivePlan(user) === "pro";
 }
 
-export function canScan(wallet: string, deep: boolean): { allowed: boolean; reason?: string } {
+export function canScan(wallet: string, deep: boolean): { allowed: boolean; reason?: string; cooldownRemaining?: number } {
   const store = readStore();
   const user = getOrCreateUser(store, wallet);
   const plan = getActivePlan(user);
   const limits = PLAN_LIMITS[plan];
+  const cooldown = PLAN_COOLDOWNS[plan];
+
+  // Cooldown check
+  if (cooldown > 0 && user.last_scan_at) {
+    const elapsed = Date.now() - user.last_scan_at;
+    if (elapsed < cooldown) {
+      const remaining = Math.ceil((cooldown - elapsed) / 1000);
+      return { allowed: false, reason: `Please wait ${remaining}s before scanning again.`, cooldownRemaining: remaining };
+    }
+  }
 
   if (user.total_scans_today >= limits.scans) {
     const cap = limits.scans === Infinity ? "unlimited" : String(limits.scans);
@@ -139,6 +158,7 @@ export function recordScan(wallet: string, targetAddress: string, chain: string,
   const store = readStore();
   const user = getOrCreateUser(store, wallet);
   user.total_scans_today++;
+  user.last_scan_at = Date.now();
   if (deep) user.free_deep_scans_used++;
   user.scans.push({ address: targetAddress, chain, deep, timestamp: new Date().toISOString() });
   if (user.scans.length > 100) user.scans = user.scans.slice(-100);
@@ -155,6 +175,7 @@ export function getUsage(wallet: string): UserUsage {
 
 const IP_DAILY_LIMIT = 10;
 const IP_DEEP_DAILY_LIMIT = 5;
+const IP_COOLDOWN_MS = 5_000; // 5 seconds between scans per IP
 
 function getOrCreateIp(store: Store, ip: string): IpUsage {
   if (!store.ips) store.ips = {};
@@ -170,9 +191,19 @@ function getOrCreateIp(store: Store, ip: string): IpUsage {
   return ipUsage;
 }
 
-export function canScanIp(ip: string): { allowed: boolean; reason?: string } {
+export function canScanIp(ip: string): { allowed: boolean; reason?: string; cooldownRemaining?: number } {
   const store = readStore();
   const ipUsage = getOrCreateIp(store, ip);
+
+  // IP cooldown check
+  if (ipUsage.last_scan_at) {
+    const elapsed = Date.now() - ipUsage.last_scan_at;
+    if (elapsed < IP_COOLDOWN_MS) {
+      const remaining = Math.ceil((IP_COOLDOWN_MS - elapsed) / 1000);
+      return { allowed: false, reason: `Please wait ${remaining}s before scanning again.`, cooldownRemaining: remaining };
+    }
+  }
+
   if (ipUsage.total_scans_today >= IP_DAILY_LIMIT) {
     return { allowed: false, reason: "Daily IP scan limit reached. Connect a wallet or try again tomorrow." };
   }
@@ -189,6 +220,7 @@ export function recordScanIp(ip: string, deep: boolean) {
   const store = readStore();
   const ipUsage = getOrCreateIp(store, ip);
   ipUsage.total_scans_today++;
+  ipUsage.last_scan_at = Date.now();
   if (deep) ipUsage.deep_scans_today++;
   writeStore(store);
 }

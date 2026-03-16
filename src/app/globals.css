@@ -231,9 +231,9 @@ body > * { position: relative; z-index: 1; }
 /* ── Intel label (classified stamp style) ── */
 .intel-label {
   font-family: var(--font-mono), 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 

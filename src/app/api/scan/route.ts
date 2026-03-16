@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const ipCheck = canScanIp(ip);
     if (!ipCheck.allowed) {
       return NextResponse.json(
-        { error: ipCheck.reason, limitReached: true },
+        { error: ipCheck.reason, limitReached: true, cooldownRemaining: ipCheck.cooldownRemaining },
         { status: 429 }
       );
     }
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       const check = canScan(session.address, deep);
       if (!check.allowed) {
         return NextResponse.json(
-          { error: check.reason, limitReached: true },
+          { error: check.reason, limitReached: true, cooldownRemaining: check.cooldownRemaining },
           { status: 429 }
         );
       }
