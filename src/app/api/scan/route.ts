@@ -6,8 +6,12 @@ import { verifySessionCookie, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { canScan, recordScan, canScanIp, canDeepScanIp, recordScanIp } from "@/lib/usage-store";
 
 // In-process scan cache: address+chain → result, TTL 10 min
-const g = globalThis as typeof globalThis & { __scanCache?: Map<string, { result: unknown; ts: number }> };
+const g = globalThis as typeof globalThis & {
+  __scanCache?: Map<string, { result: unknown; ts: number }>;
+  __scanAnalytics?: { totalScans: number; uniqueAddresses: Set<string>; uniqueIps: Set<string>; firstScanAt?: string; scansPerHour: Record<string, number> };
+};
 if (!g.__scanCache) g.__scanCache = new Map();
+if (!g.__scanAnalytics) g.__scanAnalytics = { totalScans: 0, uniqueAddresses: new Set(), uniqueIps: new Set(), scansPerHour: {} };
 const CACHE_TTL = 10 * 60 * 1000;
 
 function getCached(key: string) {
@@ -114,6 +118,15 @@ export async function POST(req: NextRequest) {
       result.exchangesSeen = result.exchangesSeen.filter((e) => !e.includes("(indirect)"));
       result.totalInteractions = result.interactions.length;
     }
+
+    // Track analytics (in-memory, survives within warm instance)
+    const analytics = g.__scanAnalytics!;
+    analytics.totalScans++;
+    analytics.uniqueAddresses.add(trimmed.toLowerCase());
+    analytics.uniqueIps.add(ip);
+    if (!analytics.firstScanAt) analytics.firstScanAt = new Date().toISOString();
+    const hourKey = new Date().toISOString().slice(0, 13); // "2026-03-16T18"
+    analytics.scansPerHour[hourKey] = (analytics.scansPerHour[hourKey] || 0) + 1;
 
     // Record usage
     recordScanIp(ip, deep);
