@@ -1,5 +1,6 @@
 import axios from "axios";
 import { lookupCex, lookupSuspectedCex, lookupAny, type Chain, type CexAddress, type EntityType } from "./cex-addresses";
+import { lookupUserSubmission } from "./submission-store";
 
 export interface CexInteraction {
   exchange: string;
@@ -314,6 +315,7 @@ async function scanEvm(address: string): Promise<ScanResult> {
         const match = lookupCex(to, "ethereum");
         const suspected = !match ? lookupSuspectedCex(to, "ethereum") : null;
         const anyMatch = !match && !suspected ? lookupAny(to, "ethereum") : null;
+        const userSub = !match && !suspected && !anyMatch ? lookupUserSubmission(to, "ethereum") : null;
 
         if (match) {
           addInteraction(match, "sent", to);
@@ -321,6 +323,8 @@ async function scanEvm(address: string): Promise<ScanResult> {
           addInteraction(suspected, "sent", to, true);
         } else if (anyMatch) {
           addInteraction(anyMatch, "sent", to);
+        } else if (userSub) {
+          addInteraction(userSub, "sent", to, true);
         } else {
           counterparties.push(to);
         }
@@ -331,12 +335,15 @@ async function scanEvm(address: string): Promise<ScanResult> {
         const match = lookupCex(from, "ethereum");
         const suspected = !match ? lookupSuspectedCex(from, "ethereum") : null;
         const anyMatch = !match && !suspected ? lookupAny(from, "ethereum") : null;
+        const userSub = !match && !suspected && !anyMatch ? lookupUserSubmission(from, "ethereum") : null;
         if (match) {
           addInteraction(match, "received", from);
         } else if (suspected) {
           addInteraction(suspected, "received", from, true);
         } else if (anyMatch) {
           addInteraction(anyMatch, "received", from);
+        } else if (userSub) {
+          addInteraction(userSub, "received", from, true);
         } else {
           counterparties.push(from);
         }

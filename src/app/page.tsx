@@ -185,6 +185,10 @@ export default function Home() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [isIndia, setIsIndia] = useState(false);
+  const [submitAddr, setSubmitAddr] = useState("");
+  const [submitExchange, setSubmitExchange] = useState("");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [submitMsg, setSubmitMsg] = useState("");
   const session = useSession();
   // session.refresh is already stable (useCallback with no deps in useSession)
   // Wrapping in another useCallback with `session` as dep would recreate it every render,
@@ -1373,7 +1377,10 @@ export default function Home() {
                                   opacity: 0.8,
                                 }}>{etConfig.label}</span>
                               )}
-                              {ix.suspected && (
+                              {ix.suspected && ix.label?.startsWith("Community:") && (
+                                <span className="intel-label" style={{ marginLeft: 6, background: "rgba(99,102,241,0.12)", color: "#818cf8", padding: "1px 5px", borderRadius: 3 }}>community</span>
+                              )}
+                              {ix.suspected && !ix.label?.startsWith("Community:") && (
                                 <span className="intel-label" style={{ marginLeft: 6, background: "rgba(167,139,250,0.12)", color: "#c4b5fd", padding: "1px 5px", borderRadius: 3 }}>suspected</span>
                               )}
                             </p>
@@ -1455,7 +1462,97 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mt-16 pb-8" />
+        {/* ══════════════════════════════════════
+            SUBMIT ADDRESS
+           ══════════════════════════════════════ */}
+        <div className="mt-16" style={{ borderTop: "1px solid var(--edge)", paddingTop: 32 }}>
+          <details className="group">
+            <summary className="cursor-pointer flex items-center gap-2 transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--secondary)" }}>
+              <svg className="h-3.5 w-3.5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              Know an exchange wallet? Help us expand the database
+            </summary>
+            <div className="mt-4 animate-fade-in" style={{ border: "1px solid var(--edge-strong)", borderRadius: 12, background: "var(--surface-0)", padding: 20 }}>
+              <p className="mb-4" style={{ fontSize: 13, color: "var(--secondary)", lineHeight: 1.6 }}>
+                Submit a wallet address you believe belongs to an exchange. It will appear in scan results as a community-submitted address.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  value={submitAddr}
+                  onChange={(e) => setSubmitAddr(e.target.value)}
+                  placeholder="0x..."
+                  aria-label="Wallet address to submit"
+                  style={{
+                    flex: 2, background: "var(--surface-2)", border: "1px solid var(--edge)",
+                    borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 13,
+                    color: "var(--primary)", outline: "none",
+                  }}
+                />
+                <input
+                  type="text"
+                  value={submitExchange}
+                  onChange={(e) => setSubmitExchange(e.target.value)}
+                  placeholder="Exchange name"
+                  aria-label="Exchange name"
+                  style={{
+                    flex: 1, background: "var(--surface-2)", border: "1px solid var(--edge)",
+                    borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-display)", fontSize: 13,
+                    color: "var(--primary)", outline: "none",
+                  }}
+                />
+                <button
+                  disabled={!submitAddr.trim() || !submitExchange.trim() || submitStatus === "loading"}
+                  onClick={async () => {
+                    setSubmitStatus("loading");
+                    setSubmitMsg("");
+                    try {
+                      const res = await fetch("/api/submit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ address: submitAddr.trim(), exchange: submitExchange.trim() }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        setSubmitStatus("error");
+                        setSubmitMsg(data.error || "Submission failed");
+                      } else {
+                        setSubmitStatus("success");
+                        setSubmitMsg("Submitted! This address will now appear in scan results.");
+                        setSubmitAddr("");
+                        setSubmitExchange("");
+                        setTimeout(() => setSubmitStatus("idle"), 5000);
+                      }
+                    } catch {
+                      setSubmitStatus("error");
+                      setSubmitMsg("Network error — please try again");
+                    }
+                  }}
+                  style={{
+                    background: submitStatus === "loading" ? "var(--surface-2)" : "var(--surface-2)",
+                    border: "1px solid var(--edge-strong)",
+                    borderRadius: 8, padding: "10px 18px",
+                    fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 13,
+                    color: submitAddr.trim() && submitExchange.trim() ? "var(--accent)" : "var(--tertiary)",
+                    cursor: submitAddr.trim() && submitExchange.trim() ? "pointer" : "not-allowed",
+                    whiteSpace: "nowrap", transition: "all 0.15s",
+                  }}
+                >
+                  {submitStatus === "loading" ? "..." : "Submit"}
+                </button>
+              </div>
+              {submitMsg && (
+                <p className="mt-3" style={{
+                  fontSize: 13, fontFamily: "var(--font-mono)",
+                  color: submitStatus === "success" ? "var(--safe)" : "var(--threat)",
+                }}>
+                  {submitMsg}
+                </p>
+              )}
+            </div>
+          </details>
+        </div>
+
+        <div className="mt-8 pb-8" />
 
       </main>
 
