@@ -583,7 +583,7 @@ export default function Home() {
                 >
                   <span style={{ fontSize: 14 }}>&#127891;</span>
                   <span style={{ fontFamily: "var(--font-display)", fontSize: 13, color: "rgb(165,180,252)" }}>
-                    Free crypto courses for Indian investors — <span style={{ fontWeight: 600 }}>Fedha Academy</span>
+                    Learn Crypto for Free — <span style={{ fontWeight: 600 }}>Fedha Academy</span>
                   </span>
                   <span style={{ fontSize: 12, color: "rgb(129,140,248)" }}>&rarr;</span>
                 </a>
@@ -1071,7 +1071,7 @@ export default function Home() {
                   <div className="flex items-center gap-2.5">
                     <span style={{ fontSize: 16 }}>&#127891;</span>
                     <span style={{ fontSize: 13, color: "var(--secondary)" }}>
-                      Learn crypto trading &amp; DeFi for free — <span style={{ fontWeight: 600, color: "rgb(165,180,252)" }}>Fedha Academy</span>
+                      Learn Crypto for Free — <span style={{ fontWeight: 600, color: "rgb(165,180,252)" }}>Fedha Academy</span>
                     </span>
                   </div>
                   <a
