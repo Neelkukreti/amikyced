@@ -3,16 +3,15 @@ import { getSubmissionCount } from "@/lib/submission-store";
 import fs from "fs";
 import path from "path";
 
-const SYNC_SECRET = process.env.SYNC_SECRET || "";
-
 const IS_VERCEL = !!process.env.VERCEL;
 const DATA_DIR = IS_VERCEL ? "/tmp" : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "submissions.json");
 
 /** GET /api/submissions?secret=xxx — export all submissions for sync */
 export async function GET(req: NextRequest) {
+  const syncSecret = process.env.SYNC_SECRET || "";
   const secret = req.nextUrl.searchParams.get("secret");
-  if (!SYNC_SECRET || secret !== SYNC_SECRET) {
+  if (!syncSecret || secret !== syncSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
