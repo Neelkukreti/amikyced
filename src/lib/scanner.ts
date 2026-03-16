@@ -13,6 +13,7 @@ export interface CexInteraction {
   indirect?: boolean;   // true if detected via 2-hop analysis
   suspected?: boolean;  // true if from suspected (unconfirmed) CEX list
   entityType?: EntityType; // "cex" | "celebrity" | "sanctions" | "rugpull" | "smartmoney" | "fund" | "government" | "protocol"
+  chainId?: number;     // EVM chain ID for correct explorer links
 }
 
 export interface IndirectExposure {
@@ -51,7 +52,7 @@ export interface ScanResult {
 //  EVM: fetch transaction list for any address (reused for 2-hop)
 // ═══════════════════════════════════════════════════════════════
 
-type TxRow = { from: string; to: string; hash: string; timeStamp: string; value: string; tokenSymbol?: string; tokenDecimal?: string; isError?: string; functionName?: string };
+type TxRow = { from: string; to: string; hash: string; timeStamp: string; value: string; tokenSymbol?: string; tokenDecimal?: string; isError?: string; functionName?: string; chainId?: number };
 
 // ═══════════════════════════════════════════════════════════════
 //  Dust / spam / phishing filter — skip fake & irrelevant txs
@@ -139,6 +140,7 @@ async function fetchEvmTxListForChain(
     if (data.status === "1" && Array.isArray(data.result)) {
       for (const tx of data.result) {
         tx.tokenSymbol = nativeSymbol;
+        tx.chainId = chainId;
         txList.push(tx);
       }
     }
@@ -151,7 +153,10 @@ async function fetchEvmTxListForChain(
     const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&address=${address}&startblock=0&endblock=99999999&page=1&offset=200&sort=desc&apikey=${apiKey}`;
     const { data } = await axios.get(url, { timeout: 15000 });
     if (data.status === "1" && Array.isArray(data.result)) {
-      txList.push(...data.result);
+      for (const tx of data.result) {
+        tx.chainId = chainId;
+        txList.push(tx);
+      }
     }
   } catch {
     // Skip failed token fetch
@@ -343,7 +348,9 @@ async function scanEvm(address: string): Promise<ScanResult> {
           const val = Number(tx.value) / Math.pow(10, decimals);
           return val.toFixed(decimals > 6 ? 4 : 2) + " " + tx.tokenSymbol;
         }
-        return (Number(tx.value) / 1e18).toFixed(4) + " ETH";
+        // Use the native symbol tagged by fetchEvmTxListForChain (ETH/BNB/MATIC/etc.)
+        const nativeSymbol = tx.tokenSymbol || "ETH";
+        return (Number(tx.value) / 1e18).toFixed(4) + " " + nativeSymbol;
       };
 
       const addInteraction = (entry: CexAddress, dir: "sent" | "received", cp: string, isSuspected = false) => {
@@ -358,6 +365,7 @@ async function scanEvm(address: string): Promise<ScanResult> {
           amount: formatAmount(tx), counterparty: cp,
           ...(isSuspected && { suspected: true }),
           entityType: entry.entityType || "cex",
+          chainId: tx.chainId,
         });
       };
 

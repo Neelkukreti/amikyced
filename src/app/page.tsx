@@ -22,6 +22,7 @@ interface CexInteraction {
   indirect?: boolean;
   suspected?: boolean;
   entityType?: EntityType;
+  chainId?: number;
 }
 
 const ENTITY_TYPE_CONFIG: Record<EntityType, { label: string; color: string; badgeColor: string; icon: string }> = {
@@ -97,6 +98,26 @@ const EXPLORER_URLS: Record<Chain, { tx: string; addr: string }> = {
   bitcoin: { tx: "https://mempool.space/tx/", addr: "https://mempool.space/address/" },
   tron: { tx: "https://tronscan.org/#/transaction/", addr: "https://tronscan.org/#/address/" },
 };
+
+// Chain-specific explorers for EVM chains (keyed by chainId)
+const EVM_EXPLORER: Record<number, { tx: string; addr: string; name: string }> = {
+  1:     { tx: "https://etherscan.io/tx/", addr: "https://etherscan.io/address/", name: "Ethereum" },
+  42161: { tx: "https://arbiscan.io/tx/", addr: "https://arbiscan.io/address/", name: "Arbitrum" },
+  56:    { tx: "https://bscscan.com/tx/", addr: "https://bscscan.com/address/", name: "BSC" },
+  137:   { tx: "https://polygonscan.com/tx/", addr: "https://polygonscan.com/address/", name: "Polygon" },
+  10:    { tx: "https://optimistic.etherscan.io/tx/", addr: "https://optimistic.etherscan.io/address/", name: "Optimism" },
+  8453:  { tx: "https://basescan.org/tx/", addr: "https://basescan.org/address/", name: "Base" },
+};
+
+// Get the correct explorer URL for a tx, using chainId if available
+function getTxExplorerUrl(txHash: string, chain: Chain, chainId?: number): string {
+  if (chainId && EVM_EXPLORER[chainId]) return EVM_EXPLORER[chainId].tx + txHash;
+  return EXPLORER_URLS[chain].tx + txHash;
+}
+function getAddrExplorerUrl(addr: string, chain: Chain, chainId?: number): string {
+  if (chainId && EVM_EXPLORER[chainId]) return EVM_EXPLORER[chainId].addr + addr;
+  return EXPLORER_URLS[chain].addr + addr;
+}
 
 interface ExchangeStat {
   exchange: string;
@@ -1284,7 +1305,7 @@ export default function Home() {
                       {exp.userTxAmount && (
                         <div className="text-center mb-1.5">
                           {exp.userTxHash ? (
-                            <a href={`${EXPLORER_URLS[result.chain].tx}${exp.userTxHash}`} target="_blank" rel="noopener noreferrer"
+                            <a href={getTxExplorerUrl(exp.userTxHash, result.chain)} target="_blank" rel="noopener noreferrer"
                               style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)", textDecoration: "none", borderBottom: "1px dashed var(--edge-strong)" }}
                             >
                               {userDir === "sent" ? "Sent" : "Received"} {exp.userTxAmount}
@@ -1314,7 +1335,7 @@ export default function Home() {
                           <svg style={{ flexShrink: 0, width: 10, height: 10, color: arrowColor1, marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
                         </div>
                         <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
-                          <a href={`${EXPLORER_URLS[result.chain].addr}${exp.intermediaryAddress}`} target="_blank" rel="noopener noreferrer"
+                          <a href={getAddrExplorerUrl(exp.intermediaryAddress, result.chain)} target="_blank" rel="noopener noreferrer"
                             style={{ display: "block", border: "1px solid rgba(255,170,0,0.25)", borderRadius: 8, background: "rgba(255,170,0,0.05)", padding: "8px 10px", textAlign: "center", textDecoration: "none", transition: "all 0.15s" }}
                             aria-label={`View intermediary ${exp.intermediaryAddress.slice(0, 8)}`}
                           >
@@ -1474,6 +1495,9 @@ export default function Home() {
                               )}
                             </p>
                             <div className="flex items-center gap-2" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--secondary)", marginTop: 2 }}>
+                              {ix.chainId && EVM_EXPLORER[ix.chainId] && ix.chainId !== 1 && (
+                                <span className="intel-label" style={{ background: "var(--surface-2)", color: "var(--tertiary)", padding: "1px 5px", borderRadius: 3, fontSize: 10 }}>{EVM_EXPLORER[ix.chainId].name}</span>
+                              )}
                               {ix.timestamp && <span>{new Date(ix.timestamp).toLocaleDateString()}</span>}
                               {ix.amount && (
                                 <span style={{ fontWeight: 600, color: ix.direction === "sent" ? "var(--threat)" : "var(--safe)" }}>
@@ -1484,7 +1508,7 @@ export default function Home() {
                           </div>
                         </div>
                         {ix.txHash && (
-                          <a href={`${EXPLORER_URLS[result.chain].tx}${ix.txHash}`} target="_blank" rel="noopener noreferrer"
+                          <a href={getTxExplorerUrl(ix.txHash, result.chain, ix.chainId)} target="_blank" rel="noopener noreferrer"
                             className="intel-label shrink-0 ml-3 transition-colors"
                             style={{ border: "1px solid transparent", borderRadius: 5, padding: "4px 8px", color: "var(--tertiary)", textDecoration: "none" }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--edge)"; (e.currentTarget as HTMLElement).style.color = "var(--secondary)"; }}
