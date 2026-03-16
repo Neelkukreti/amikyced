@@ -792,8 +792,7 @@ const SMART_MONEY_WALLETS: CexAddress[] = [
 // ═══════════════════════════════════════════════════════════════
 
 const GOVERNMENT_WALLETS: CexAddress[] = [
-  { address: "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d", exchange: "US Government (DOJ)", label: "DOJ Seizure Wallet (Silk Road)", chain: "ethereum", entityType: "government" },
-  { address: "0x49048044d57e1c92a77f79988d21fa8faf74e97e", exchange: "US Government (DOJ)", label: "DOJ Seizure Wallet (Bitfinex)", chain: "ethereum", entityType: "government" },
+  { address: "0x49048044d57e1c92a77f79988d21fa8faf74e97e", exchange: "Base", label: "Base Portal (L1 Bridge)", chain: "ethereum", entityType: "protocol" },
   { address: "bc1qa5wkgaew2dkv56kc6hp3706gkm7ay7qjhz2yq3", exchange: "US Government", label: "US Gov Seized BTC (Silk Road)", chain: "bitcoin", entityType: "government" },
   { address: "bc1qf2yvj48c0wqkjnzjr3ywmraeftacq0gedwlkn0", exchange: "German Government (BKA)", label: "German Gov BTC Sales (2024)", chain: "bitcoin", entityType: "government" },
 ];

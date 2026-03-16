@@ -1376,20 +1376,41 @@ export default function Home() {
                   <div className="mt-6 pt-5" style={{ borderTop: "1px solid rgba(255,170,0,0.1)" }}>
                     <div className="intel-label mb-3" style={{ color: "var(--secondary)" }}>Direct (1-hop) connections</div>
                     {result.interactions.filter(i => !i.indirect).slice(0, 5).map((ix, i) => (
-                      <div key={i} className="flex items-center gap-0 mb-3">
-                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
-                          <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "6px 8px", textAlign: "center" }}>
-                            <div className="intel-label" style={{ color: "var(--secondary)" }}>You</div>
+                      <div key={i} className="mb-4">
+                        {/* Tx details above the arrow */}
+                        {(ix.amount || ix.timestamp) && (
+                          <div className="text-center mb-1.5">
+                            {ix.txHash ? (
+                              <a href={getTxExplorerUrl(ix.txHash, result.chain, ix.chainId)} target="_blank" rel="noopener noreferrer"
+                                style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)", textDecoration: "none", borderBottom: "1px dashed var(--edge-strong)" }}
+                              >
+                                {ix.direction === "sent" ? "Sent" : "Received"} {ix.amount || ""}
+                                {ix.timestamp && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{new Date(ix.timestamp).toLocaleDateString()}</span>}
+                                {ix.chainId && EVM_EXPLORER[ix.chainId] && ix.chainId !== 1 && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{EVM_EXPLORER[ix.chainId].name}</span>}
+                              </a>
+                            ) : (
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)" }}>
+                                {ix.direction === "sent" ? "Sent" : "Received"} {ix.amount || ""}
+                                {ix.timestamp && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{new Date(ix.timestamp).toLocaleDateString()}</span>}
+                              </span>
+                            )}
                           </div>
-                        </div>
-                        <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 60 }}>
-                          <div style={{ flex: 1, height: 2, background: ix.direction === "sent" ? "linear-gradient(90deg, var(--edge-strong), rgba(255,61,61,0.5))" : "linear-gradient(90deg, rgba(0,232,150,0.5), var(--edge-strong))" }} />
-                          <svg style={{ flexShrink: 0, width: 10, height: 10, color: ix.direction === "sent" ? "rgba(255,61,61,0.5)" : "rgba(0,232,150,0.5)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
-                        </div>
-                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
-                          <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "6px 8px", textAlign: "center" }}>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
-                            <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
+                        )}
+                        <div className="flex items-center gap-0">
+                          <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
+                            <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "6px 8px", textAlign: "center" }}>
+                              <div className="intel-label" style={{ color: "var(--secondary)" }}>You</div>
+                            </div>
+                          </div>
+                          <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 60 }}>
+                            <div style={{ flex: 1, height: 2, background: ix.direction === "sent" ? "linear-gradient(90deg, var(--edge-strong), rgba(255,61,61,0.5))" : "linear-gradient(90deg, rgba(0,232,150,0.5), var(--edge-strong))" }} />
+                            <svg style={{ flexShrink: 0, width: 10, height: 10, color: ix.direction === "sent" ? "rgba(255,61,61,0.5)" : "rgba(0,232,150,0.5)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
+                          </div>
+                          <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
+                            <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "6px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
+                              <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1408,36 +1429,52 @@ export default function Home() {
                   <span style={{ color: "var(--threat)" }}>Red arrows</span> = sent funds.{" "}
                   <span style={{ color: "var(--safe)" }}>Green arrows</span> = received funds.
                 </p>
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {result.interactions.slice(0, 8).map((ix, i) => (
-                    <div key={i} className="flex items-center gap-0">
-                      <div className="exposure-box" style={{ width: 130, flexShrink: 0 }}>
-                        <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
-                          <div className="intel-label" style={{ color: "var(--secondary)", marginBottom: 1 }}>You</div>
-                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--primary)" }}>
-                            {result.address.slice(0, 6)}···{result.address.slice(-4)}
+                    <div key={i}>
+                      {/* Tx details above the arrow */}
+                      {(ix.amount || ix.timestamp) && (
+                        <div className="text-center mb-1.5">
+                          {ix.txHash ? (
+                            <a href={getTxExplorerUrl(ix.txHash, result.chain, ix.chainId)} target="_blank" rel="noopener noreferrer"
+                              style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)", textDecoration: "none", borderBottom: "1px dashed var(--edge-strong)" }}
+                            >
+                              {ix.direction === "sent" ? "Sent" : "Received"} {ix.amount || ""}
+                              {ix.timestamp && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{new Date(ix.timestamp).toLocaleDateString()}</span>}
+                              {ix.chainId && EVM_EXPLORER[ix.chainId] && ix.chainId !== 1 && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{EVM_EXPLORER[ix.chainId].name}</span>}
+                            </a>
+                          ) : (
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--secondary)" }}>
+                              {ix.direction === "sent" ? "Sent" : "Received"} {ix.amount || ""}
+                              {ix.timestamp && <span style={{ color: "var(--tertiary)", marginLeft: 6 }}>{new Date(ix.timestamp).toLocaleDateString()}</span>}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-0">
+                        <div className="exposure-box" style={{ width: 130, flexShrink: 0 }}>
+                          <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
+                            <div className="intel-label" style={{ color: "var(--secondary)", marginBottom: 1 }}>You</div>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--primary)" }}>
+                              {result.address.slice(0, 6)}···{result.address.slice(-4)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 60, position: "relative" }}>
-                        <div style={{ flex: 1, height: 2, background: ix.direction === "sent" ? "linear-gradient(90deg, var(--edge-strong), rgba(255,61,61,0.5))" : "linear-gradient(90deg, rgba(0,232,150,0.5), var(--edge-strong))", position: "relative" }}>
-                          <div style={{ position: "absolute", inset: 0, opacity: 0.4, animation: "hopPulse 2.5s ease-in-out infinite", animationDelay: `${i * 0.15}s` }} />
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 60, position: "relative" }}>
+                          <div style={{ flex: 1, height: 2, background: ix.direction === "sent" ? "linear-gradient(90deg, var(--edge-strong), rgba(255,61,61,0.5))" : "linear-gradient(90deg, rgba(0,232,150,0.5), var(--edge-strong))", position: "relative" }}>
+                            <div style={{ position: "absolute", inset: 0, opacity: 0.4, animation: "hopPulse 2.5s ease-in-out infinite", animationDelay: `${i * 0.15}s` }} />
+                          </div>
+                          {ix.direction === "sent" ? (
+                            <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(255,61,61,0.55)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
+                          ) : (
+                            <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(0,232,150,0.55)", transform: "rotate(180deg)" }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
+                          )}
                         </div>
-                        {ix.direction === "sent" ? (
-                          <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(255,61,61,0.55)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
-                        ) : (
-                          <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(0,232,150,0.55)", transform: "rotate(180deg)" }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
-                        )}
-                        {ix.amount && (
-                          <span style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: -18, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--secondary)", background: "var(--surface-0)", padding: "0 4px", whiteSpace: "nowrap" }}>
-                            {ix.amount}
-                          </span>
-                        )}
-                      </div>
-                      <div className="exposure-box" style={{ width: 130, flexShrink: 0 }}>
-                        <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "8px 10px", textAlign: "center" }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
-                          <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
+                        <div className="exposure-box" style={{ width: 130, flexShrink: 0 }}>
+                          <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "8px 10px", textAlign: "center" }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
+                            <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
