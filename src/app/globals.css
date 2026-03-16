@@ -273,3 +273,29 @@ body > * { position: relative; z-index: 1; }
 
 /* ── Selection ── */
 ::selection { background: rgba(0, 200, 255, 0.2); color: var(--primary); }
+
+/* ══════════════════════════════════════════════════
+   Mobile optimizations
+   ══════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  /* Reduce hero background SVG size so it doesn't overflow */
+  .hero-bg-svg { transform: translate(-50%, -50%) scale(0.55) !important; }
+
+  /* Stack scan nodes in 3-col on mobile */
+  .scan-nodes-grid { grid-template-columns: repeat(3, 1fr) !important; }
+
+  /* Exposure map boxes narrower on mobile */
+  .exposure-box { width: 90px !important; }
+  .exposure-box .intel-label { font-size: 10px !important; }
+  .exposure-box div[style*="fontSize: 14"] { font-size: 12px !important; }
+
+  /* Smaller intel-label on mobile */
+  .intel-label { font-size: 11px; }
+
+  /* Transaction log: tighter padding */
+  .tx-row { padding: 8px 8px !important; }
+
+  /* Chain pills: wrap and smaller */
+  .chain-pills { flex-wrap: wrap; gap: 8px 12px !important; }
+}

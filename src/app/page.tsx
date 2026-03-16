@@ -323,7 +323,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className="mx-auto max-w-6xl px-6">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6">
 
         {/* ══════════════════════════════════════
             HERO — idle state
@@ -333,7 +333,7 @@ export default function Home() {
 
             {/* ── Animated background ── */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              <svg width="900" height="700" viewBox="0 0 900 700" fill="none" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", opacity: 0.9 }}>
+              <svg width="900" height="700" viewBox="0 0 900 700" fill="none" className="hero-bg-svg" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", opacity: 0.9 }}>
                 {/* Pulsing rings */}
                 <circle cx="450" cy="340" r="160" stroke="rgba(0,185,255,0.06)" strokeWidth="1" className="animate-ring-1" />
                 <circle cx="450" cy="340" r="240" stroke="rgba(0,185,255,0.04)" strokeWidth="1" className="animate-ring-2" />
@@ -543,7 +543,7 @@ export default function Home() {
               </div>
 
               {/* Chain pills */}
-              <div className="animate-fade-in stagger-3 mt-5 flex items-center justify-center gap-6">
+              <div className="animate-fade-in stagger-3 mt-5 flex items-center justify-center gap-6 chain-pills">
                 {Object.entries(CHAIN_INFO).map(([, info]) => (
                   <span key={info.name} className="flex items-center gap-1.5" style={{ fontFamily: "var(--font-display)", fontSize: 13, color: "var(--secondary)" }}>
                     <span style={{ color: info.color, fontSize: 14 }}>{info.icon}</span>
@@ -631,7 +631,7 @@ export default function Home() {
             {/* Scan terminal */}
             <div className="mx-auto max-w-2xl relative">
               <Corners opacity={0.25} size={16} />
-              <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 16, background: "var(--surface-0)", padding: "40px 32px", overflow: "hidden" }}>
+              <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 16, background: "var(--surface-0)", padding: "28px 16px", overflow: "hidden" }} className="sm:!p-[40px_32px]">
 
                 {/* Sweeping gradient */}
                 <div style={{
@@ -691,7 +691,7 @@ export default function Home() {
                       })}
                     </svg>
 
-                    <div className="grid grid-cols-5 gap-x-3 gap-y-5 relative">
+                    <div className="grid grid-cols-5 gap-x-3 gap-y-5 relative scan-nodes-grid">
                       {[
                         { label: "wallet",   icon: "W", color: "var(--tertiary)",  glow: false, phase: 0 },
                         { label: "contract", icon: "C", color: "var(--tertiary)",  glow: false, phase: 0 },
@@ -1207,7 +1207,7 @@ export default function Home() {
                   {result.indirectExposures.map((exp, i) => (
                     <div key={i}>
                       <div className="flex items-center gap-0">
-                        <div style={{ width: 120, flexShrink: 0 }}>
+                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
                             <div className="intel-label" style={{ color: "var(--secondary)", marginBottom: 2 }}>You</div>
                             <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--primary)" }}>
@@ -1221,7 +1221,7 @@ export default function Home() {
                           </div>
                           <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(255,170,0,0.5)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
                         </div>
-                        <div style={{ width: 120, flexShrink: 0 }}>
+                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <a href={`${EXPLORER_URLS[result.chain].addr}${exp.intermediaryAddress}`} target="_blank" rel="noopener noreferrer"
                             style={{ display: "block", border: "1px solid rgba(255,170,0,0.25)", borderRadius: 8, background: "rgba(255,170,0,0.05)", padding: "8px 10px", textAlign: "center", textDecoration: "none", transition: "all 0.15s" }}
                             aria-label={`View intermediary ${exp.intermediaryAddress.slice(0, 8)}`}
@@ -1238,7 +1238,7 @@ export default function Home() {
                           </div>
                           <svg style={{ flexShrink: 0, width: 10, height: 10, color: "rgba(255,61,61,0.5)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
                         </div>
-                        <div style={{ width: 120, flexShrink: 0 }}>
+                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid rgba(255,61,61,0.25)", borderRadius: 8, background: "rgba(255,61,61,0.05)", padding: "8px 10px", textAlign: "center" }}>
                             <div className="intel-label" style={{ color: "rgba(255,61,61,0.7)", marginBottom: 2 }}>{exp.exchange}</div>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{exp.label}</div>
@@ -1263,7 +1263,7 @@ export default function Home() {
                     <div className="intel-label mb-3" style={{ color: "var(--secondary)" }}>Direct (1-hop) connections</div>
                     {result.interactions.filter(i => !i.indirect).slice(0, 5).map((ix, i) => (
                       <div key={i} className="flex items-center gap-0 mb-3">
-                        <div style={{ width: 120, flexShrink: 0 }}>
+                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "6px 8px", textAlign: "center" }}>
                             <div className="intel-label" style={{ color: "var(--secondary)" }}>You</div>
                           </div>
@@ -1272,7 +1272,7 @@ export default function Home() {
                           <div style={{ flex: 1, height: 2, background: ix.direction === "sent" ? "linear-gradient(90deg, var(--edge-strong), rgba(255,61,61,0.5))" : "linear-gradient(90deg, rgba(0,232,150,0.5), var(--edge-strong))" }} />
                           <svg style={{ flexShrink: 0, width: 10, height: 10, color: ix.direction === "sent" ? "rgba(255,61,61,0.5)" : "rgba(0,232,150,0.5)", marginLeft: -2 }} viewBox="0 0 12 12" fill="currentColor"><path d="M2 6l7-4v8z" /></svg>
                         </div>
-                        <div style={{ width: 120, flexShrink: 0 }}>
+                        <div className="exposure-box" style={{ width: 120, flexShrink: 0 }}>
                           <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "6px 8px", textAlign: "center" }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
                             <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
@@ -1297,7 +1297,7 @@ export default function Home() {
                 <div className="space-y-3">
                   {result.interactions.slice(0, 8).map((ix, i) => (
                     <div key={i} className="flex items-center gap-0">
-                      <div style={{ width: 130, flexShrink: 0 }}>
+                      <div className="exposure-box" style={{ width: 130, flexShrink: 0 }}>
                         <div style={{ border: "1px solid var(--edge-strong)", borderRadius: 8, background: "var(--surface-1)", padding: "8px 10px", textAlign: "center" }}>
                           <div className="intel-label" style={{ color: "var(--secondary)", marginBottom: 1 }}>You</div>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--primary)" }}>
@@ -1320,7 +1320,7 @@ export default function Home() {
                           </span>
                         )}
                       </div>
-                      <div style={{ width: 130, flexShrink: 0 }}>
+                      <div className="exposure-box" style={{ width: 130, flexShrink: 0 }}>
                         <div style={{ border: "1px solid rgba(255,61,61,0.2)", borderRadius: 8, background: "rgba(255,61,61,0.04)", padding: "8px 10px", textAlign: "center" }}>
                           <div style={{ fontSize: 14, fontWeight: 700, color: "var(--threat)" }}>{ix.exchange}</div>
                           <div className="intel-label" style={{ color: "var(--secondary)" }}>{ix.label}</div>
@@ -1349,7 +1349,7 @@ export default function Home() {
                     const badgeBg = ix.indirect ? "rgba(255,170,0,0.1)" : ix.suspected ? "rgba(167,139,250,0.1)" : etype !== "cex" ? undefined : ix.direction === "sent" ? "rgba(255,61,61,0.08)" : "rgba(0,232,150,0.08)";
                     const badgeColor = ix.indirect ? "var(--caution)" : ix.suspected ? "#c4b5fd" : etype !== "cex" ? undefined : ix.direction === "sent" ? "var(--threat)" : "var(--safe)";
                     return (
-                      <div key={i} className="group flex items-center justify-between"
+                      <div key={i} className="group flex items-center justify-between tx-row"
                         style={{ borderRadius: 7, border: "1px solid transparent", padding: "10px 12px", transition: "all 0.12s", cursor: "default" }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--edge)"; (e.currentTarget as HTMLElement).style.background = "var(--surface-1)"; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}

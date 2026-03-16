@@ -139,7 +139,8 @@ export async function POST(req: NextRequest) {
     }
 
     return res;
-  } catch {
+  } catch (err) {
+    console.error("Scan API error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

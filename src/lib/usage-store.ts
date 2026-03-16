@@ -1,7 +1,9 @@
 import fs from "fs";
 import path from "path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Vercel serverless has read-only filesystem except /tmp
+const IS_VERCEL = !!process.env.VERCEL;
+const DATA_DIR = IS_VERCEL ? "/tmp" : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "usage.json");
 
 export type Plan = "free" | "basic" | "pro";
