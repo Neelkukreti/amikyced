@@ -437,10 +437,10 @@ export default function Home() {
 
             {/* Headline */}
             <h1 className="animate-fade-in-up" style={{ fontSize: "clamp(2.2rem, 6vw, 4.2rem)", fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1, maxWidth: 700, position: "relative", zIndex: 1 }}>
-              Is Your Wallet
+              Can Govt Track Your
               <br />
               <span style={{ color: "var(--accent)", position: "relative", display: "inline-block" }}>
-                Traceable?
+                Crypto Wallet?
                 <svg style={{ position: "absolute", bottom: -4, left: 0, width: "100%", height: 3 }} viewBox="0 0 100 3" preserveAspectRatio="none">
                   <line x1="0" y1="1.5" x2="100" y2="1.5" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.5" />
                 </svg>
@@ -448,7 +448,7 @@ export default function Home() {
             </h1>
 
             <p className="animate-fade-in-up stagger-1 mt-5" style={{ color: "var(--secondary)", maxWidth: 480, lineHeight: 1.7, fontSize: 16, position: "relative", zIndex: 1 }}>
-              Detect connections to KYC-linked exchanges, sanctioned entities, and known identities across EVM chains.
+              Detect connections to KYC-linked exchanges, sanctioned entities, and known identities across Ethereum, Arbitrum, BSC, Polygon, Optimism &amp; Base.
             </p>
 
             {/* ── Search form ── */}
@@ -511,7 +511,7 @@ export default function Home() {
                       }}
                     >
                       <option value="auto">AUTO</option>
-                      <option value="ethereum">ETH</option>
+                      <option value="ethereum">EVM</option>
                       <option value="solana" disabled>SOL (soon)</option>
                       <option value="bitcoin" disabled>BTC (soon)</option>
                       <option value="tron" disabled>TRX (soon)</option>
@@ -826,7 +826,7 @@ export default function Home() {
                   }}
                 >
                   <option value="auto">AUTO</option>
-                  <option value="ethereum">ETH</option>
+                  <option value="ethereum">EVM</option>
                   <option value="solana" disabled>SOL (soon)</option>
                   <option value="bitcoin" disabled>BTC (soon)</option>
                   <option value="tron" disabled>TRX (soon)</option>

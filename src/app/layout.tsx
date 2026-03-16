@@ -18,7 +18,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KYCScan — CEX Exposure Scanner",
+  title: "KYCScan — Can Govt Track Your Crypto Wallet?",
   description: "Check if any wallet has interacted with centralized exchanges. Supports EVM chains (Ethereum, Arbitrum, BSC, Polygon, Optimism, Base).",
 };
 
