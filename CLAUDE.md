@@ -124,3 +124,10 @@ Secret value: `kycscan-sync-9e53595b6d3c3f40`
 - Only 200 most recent txs per chain scanned (Etherscan API limit)
 - 2-hop analysis limited to top 10 counterparties (rate limit friendly)
 - No persistent database — all state is in-memory or /tmp
+
+## Project tracker (read before finishing a session)
+This project is tracked on Neel's dashboard: https://asus-server.tail3ad0d3.ts.net/tracker . The dashboard reads `TRACKER.md`
+in this folder on every push (GitHub webhook) or via `~/Documents/project-tracker/push.sh` for
+folders without a remote. Before you finish or push: update `TRACKER.md` — move items
+Planned → Half-built → Shipped, add Next ideas, bump `updated:`. Keep the headings exactly.
+Never put secrets in it. Full guide: https://asus-server.tail3ad0d3.ts.net/tracker/guide
